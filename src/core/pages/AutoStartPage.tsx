@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/c
 import { Button } from "@/core/components/ui/button";
 import { Badge } from "@/core/components/ui/badge";
 import { toast } from "sonner";
-import AutoStartMap from "@/core/components/AutoComponents/AutoStartMap";
 import { AlertTriangle } from "lucide-react";
+import { AutoStartFieldSelector } from "@/game-template/components";
 
 const AutoStartPage = () => {
   const location = useLocation();
@@ -31,7 +31,7 @@ const AutoStartPage = () => {
     states?.inputs?.startPoses?.[5] || null
   );
 
-  const startPoses = [
+  const startPosition = [
     startPos1,
     startPos2,
     startPos3,
@@ -39,7 +39,7 @@ const AutoStartPage = () => {
     startPos5,
     startPos6,
   ];
-  const setStartPoses = [
+  const setStartPosition = [
     setStartPos1,
     setStartPos2,
     setStartPos3,
@@ -49,7 +49,7 @@ const AutoStartPage = () => {
   ];
 
   const validateInputs = () => {
-    const hasSelection = startPoses.some(pos => pos === true);
+    const hasSelection = startPosition.some(pos => pos === true);
     if (!hasSelection) {
       toast.error("Please select a starting position on the field");
       return false;
@@ -62,9 +62,9 @@ const AutoStartPage = () => {
       state: {
         inputs: {
           ...(states?.inputs || {}),
-          startPoses: startPoses.every((pos) => pos === false)
+          startPosition: startPosition.every((pos) => pos === false)
             ? [null, null, null, null, null, null]
-            : startPoses,
+            : startPosition,
         },
       },
     });
@@ -77,17 +77,17 @@ const AutoStartPage = () => {
       state: {
         inputs: {
           ...(states?.inputs || {}),
-          startPoses: startPoses.every((pos) => pos === false)
+          startPosition: startPosition.every((pos) => pos === false)
             ? [null, null, null, null, null, null]
-            : startPoses,
+            : startPosition,
         },
         ...(states?.rescout && { rescout: states.rescout }),
       },
     });
   };
 
-  const selectedPosition = startPoses.findIndex(pos => pos === true);
-  const hasSelection = startPoses.some(pos => pos === true);
+  const selectedPosition = startPosition.findIndex(pos => pos === true);
+  const hasSelection = startPosition.some(pos => pos === true);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center px-4 pt-6 pb-8 md:pb-6">
@@ -96,30 +96,13 @@ const AutoStartPage = () => {
       </div>
       <div className="flex flex-col lg:flex-row items-start gap-6 xl:gap-8 2xl:gap-10 max-w-7xl xl:max-w-360 2xl:max-w-400 w-full flex-1">
         
-        {/* Field Map Section */}
-        <div className="w-full lg:flex-1 h-96 lg:h-full min-h-96 lg:min-h-128 xl:min-h-160 2xl:min-h-192">
-          <Card className="w-full h-full">
-            <CardHeader className="pb-3 lg:pb-4">
-              <CardTitle className="text-xl xl:text-2xl">Starting Position</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Click where your robot starts on the field
-              </p>
-              {hasSelection && (
-                <Badge className="w-fit bg-green-600">
-                  Position {selectedPosition} Selected
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent className="h-[calc(100%-90px)] lg:h-[calc(100%-100px)] xl:h-[calc(100%-110px)] p-3 pb-4">
-              <div className="w-full h-full border rounded-lg overflow-hidden bg-green-50 dark:bg-green-950/20">
-                <AutoStartMap 
-                  startPoses={startPoses} 
-                  setStartPoses={setStartPoses} 
-                  alliance={states?.inputs?.alliance}
-                />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Field Map Section - Game-Specific Component */}
+        <div className="w-full lg:flex-1">
+          <AutoStartFieldSelector
+            startPosition={startPosition}
+            setStartPosition={setStartPosition}
+            alliance={states?.inputs?.alliance}
+          />
         </div>
 
         {/* Instructions and Controls */}

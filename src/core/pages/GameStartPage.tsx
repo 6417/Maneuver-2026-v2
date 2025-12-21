@@ -43,7 +43,7 @@ const GameStartPage = () => {
     }
     
     const parts = playerStation.split("-");
-    if (parts.length === 2) {
+    if (parts.length === 2 && parts[1]) {
       const alliance = parts[0];
       const position = parseInt(parts[1]);
       return { alliance, teamPosition: position };
@@ -343,7 +343,7 @@ const GameStartPage = () => {
                   onValueChange={(value) => setMatchType(value as "qm" | "sf" | "f")}
                   disabled={isRescoutMode}
                 >
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger className="w-24 h-12">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -359,7 +359,7 @@ const GameStartPage = () => {
                   placeholder={matchType === "qm" ? "e.g., 24" : matchType === "sf" ? "e.g., 1" : "e.g., 1"}
                   value={matchNumber}
                   onChange={(e) => handleMatchNumberChange(e.target.value)}
-                  className={`text-lg flex-1 ${isRescoutMode ? 'bg-muted cursor-not-allowed' : ''}`}
+                  className={`text-lg flex-1 h-12 ${isRescoutMode ? 'bg-muted cursor-not-allowed' : ''}`}
                   disabled={isRescoutMode}
                 />
               </div>

@@ -53,3 +53,22 @@ export const convertTeamRole = (value: string | null) => {
       }
       return "Role";
     };
+
+/**
+ * Clears all scouting session data from localStorage
+ * This includes actions, robot status, and undo history for all phases
+ * 
+ * Use this when:
+ * - Match is successfully submitted (EndgamePage)
+ * - User confirms abandoning a match (NavigationConfirmDialog)
+ * - Resetting scouting state
+ */
+export function clearScoutingLocalStorage() {
+  localStorage.removeItem("autoStateStack");
+  localStorage.removeItem("teleopStateStack");
+  localStorage.removeItem("autoRobotStatus");
+  localStorage.removeItem("teleopRobotStatus");
+  localStorage.removeItem("endgameRobotStatus");
+  localStorage.removeItem("autoUndoHistory");
+  localStorage.removeItem("teleopUndoHistory");
+}

@@ -10,6 +10,7 @@
 ## 🎯 Purpose
 
 This document defines the **TypeScript interfaces** that create the contract between:
+
 - **maneuver-core** (the year-agnostic framework)
 - **maneuver-YYYY** (year-specific game implementations)
 
@@ -120,6 +121,7 @@ interface GameConfig {
 ```
 
 **What's Actually Used (Current Implementation):**
+
 - ✅ `year` - Displayed in UI, used in database queries
 - ✅ `gameName` - Shown in page headers ("Scouting for Reefscape")
 - ✅ `scoring` - **Critical** - used by all scoring calculations
@@ -289,7 +291,7 @@ The base interface for scouting data. Each game extends this with specific field
 interface ScoutingEntryBase {
   // Identity fields (required by core framework)
   id: string;                    // Unique identifier: "eventKey::matchKey::teamNumber::alliance"
-                                 // Example: "2025mrcmp::qm24::10143::red" or "2025mrcmp::sf1m1::10143::red"
+                                 // Example: "2025mrcmp::qm24::3314::red" or "2025mrcmp::sf1m1::3314::red"
   scoutName: string;             // Who scouted this match
   teamNumber: number;            // Team being scouted
   matchNumber: number;           // Numeric match number (extracted from matchKey for sorting)
@@ -306,27 +308,31 @@ interface ScoutingEntryBase {
   
   // Timestamps (managed by core framework)
   timestamp: number;             // Unix timestamp (ms)
-  lastModified?: number;         // Last edit timestamp
-  
-  // Data attribution (for conflict resolution)
-  source: 'local' | 'qr' | 'webrtc' | 'imported';
-  sourceScout?: string;          // Original scout if transferred
-  version?: number;              // For conflict resolution
   
   // Comments (universal across games)
   comments?: string;             // Scout's notes
   
-  // Game-specific data goes here (see GameScoutingEntry)
+  // Correction metadata (for data quality tracking)
+  isCorrected?: boolean;
+  correctionCount?: number;
+  lastCorrectedAt?: number;
+  lastCorrectedBy?: string;
+  correctionNotes?: string;
+  
+  // Game-specific data (all year-specific fields stored here)
+  gameData: Record<string, unknown>;
 }
 
 /**
  * Game-specific scouting entry
- * Extends the base with year-specific fields
+ * Extends the base with typed gameData structure
  */
 interface GameScoutingEntry extends ScoutingEntryBase {
-  // Each game defines its own fields here
-  // Framework doesn't care about these, but they must be JSON-serializable
-  [key: string]: any;
+  gameData: {
+    // Game defines typed structure for gameData
+    // Example for 2025: { autoCoralL4Count: number, teleopAlgaeNet: number, ... }
+    [key: string]: any;
+  };
 }
 ```
 
@@ -335,32 +341,34 @@ interface GameScoutingEntry extends ScoutingEntryBase {
 ```typescript
 // scoutingEntry2025.ts
 export interface ScoutingEntry2025 extends ScoutingEntryBase {
-  // Pre-match
-  startingPosition: 0 | 1 | 2 | 3 | 4 | 5;
-  
-  // Autonomous period
-  autoLeave: boolean;
-  autoCoralPlaceL1Count: number;
-  autoCoralPlaceL2Count: number;
-  autoCoralPlaceL3Count: number;
-  autoCoralPlaceL4Count: number;
-  autoAlgaeNetCount: number;
-  autoAlgaeProcessorCount: number;
-  
-  // Teleop period
-  teleopCoralPlaceL1Count: number;
-  teleopCoralPlaceL2Count: number;
-  teleopCoralPlaceL3Count: number;
-  teleopCoralPlaceL4Count: number;
-  teleopAlgaeNetCount: number;
-  teleopAlgaeProcessorCount: number;
-  
-  // Endgame
-  endgameAttempt: 'none' | 'park' | 'shallow' | 'deep';
-  endgameSuccess: boolean;
-  
-  // Robot status
-  robotBroke: boolean;
+  gameData: {
+    // Pre-match
+    startingPosition: 0 | 1 | 2 | 3 | 4 | 5;
+    
+    // Autonomous period
+    autoLeave: boolean;
+    autoCoralPlaceL1Count: number;
+    autoCoralPlaceL2Count: number;
+    autoCoralPlaceL3Count: number;
+    autoCoralPlaceL4Count: number;
+    autoAlgaeNetCount: number;
+    autoAlgaeProcessorCount: number;
+    
+    // Teleop period
+    teleopCoralPlaceL1Count: number;
+    teleopCoralPlaceL2Count: number;
+    teleopCoralPlaceL3Count: number;
+    teleopCoralPlaceL4Count: number;
+    teleopAlgaeNetCount: number;
+    teleopAlgaeProcessorCount: number;
+    
+    // Endgame
+    endgameAttempt: 'none' | 'park' | 'shallow' | 'deep';
+    endgameSuccess: boolean;
+    
+    // Robot status
+    robotBroke: boolean;
+  };
 }
 ```
 
@@ -428,52 +436,53 @@ interface ScoringCalculations {
 export const scoring2025: ScoringCalculations = {
   calculateAutoPoints(entry: ScoutingEntry2025): number {
     const { scoring } = gameConfig2025;
+    const { gameData } = entry;
     let points = 0;
     
     // Leave bonus
-    if (entry.autoLeave) points += scoring.auto.leave;
+    if (gameData.autoLeave) points += scoring.auto.leave;
     
     // Coral placement
-    points += entry.autoCoralPlaceL1Count * scoring.auto.coralL1;
-    points += entry.autoCoralPlaceL2Count * scoring.auto.coralL2;
-    points += entry.autoCoralPlaceL3Count * scoring.auto.coralL3;
-    points += entry.autoCoralPlaceL4Count * scoring.auto.coralL4;
+    points += gameData.autoCoralPlaceL1Count * scoring.auto.coralL1;
+    points += gameData.autoCoralPlaceL2Count * scoring.auto.coralL2;
+    points += gameData.autoCoralPlaceL3Count * scoring.auto.coralL3;
+    points += gameData.autoCoralPlaceL4Count * scoring.auto.coralL4;
     
     // Algae scoring
-    points += entry.autoAlgaeNetCount * scoring.auto.algaeNet;
-    points += entry.autoAlgaeProcessorCount * scoring.auto.algaeProcessor;
+    points += gameData.autoAlgaeNetCount * scoring.auto.algaeNet;
+    points += gameData.autoAlgaeProcessorCount * scoring.auto.algaeProcessor;
     
     return points;
   },
   
   calculateTeleopPoints(entry: ScoutingEntry2025): number {
     const { scoring } = gameConfig2025;
+    const { gameData } = entry;
     let points = 0;
     
     // Coral placement
-    points += entry.teleopCoralPlaceL1Count * scoring.teleop.coralL1;
-    points += entry.teleopCoralPlaceL2Count * scoring.teleop.coralL2;
-    points += entry.teleopCoralPlaceL3Count * scoring.teleop.coralL3;
-    points += entry.teleopCoralPlaceL4Count * scoring.teleop.coralL4;
+    points += gameData.teleopCoralPlaceL1Count * scoring.teleop.coralL1;
+    points += gameData.teleopCoralPlaceL2Count * scoring.teleop.coralL2;
+    points += gameData.teleopCoralPlaceL3Count * scoring.teleop.coralL3;
+    points += gameData.teleopCoralPlaceL4Count * scoring.teleop.coralL4;
     
     // Algae scoring
-    points += entry.teleopAlgaeNetCount * scoring.teleop.algaeNet;
-    points += entry.teleopAlgaeProcessorCount * scoring.teleop.algaeProcessor;
+    points += gameData.teleopAlgaeNetCount * scoring.teleop.algaeNet;
+    points += gameData.teleopAlgaeProcessorCount * scoring.teleop.algaeProcessor;
     
     return points;
   },
   
   calculateEndgamePoints(entry: ScoutingEntry2025): number {
     const { scoring } = gameConfig2025;
+    const { gameData } = entry;
     let points = 0;
     
-    if (entry.endgameSuccess) {
-      if (entry.endgameAttempt === 'park') points += scoring.endgame.park;
-      if (entry.endgameAttempt === 'shallow') points += scoring.endgame.shallowClimb;
-      if (entry.endgameAttempt === 'deep') points += scoring.endgame.deepClimb;
+    if (gameData.endgameSuccess) {
+      if (gameData.endgameAttempt === 'park') points += scoring.endgame.park;
+      if (gameData.endgameAttempt === 'shallow') points += scoring.endgame.shallowClimb;
+      if (gameData.endgameAttempt === 'deep') points += scoring.endgame.deepClimb;
     }
-    
-    if (entry.endgameHarmony) points += scoring.endgame.harmony;
     
     return points;
   },
@@ -487,8 +496,9 @@ export const scoring2025: ScoringCalculations = {
   },
   
   calculatePenaltyPoints(entry: ScoutingEntry2025): number {
+    const { gameData } = entry;
     // 2025 rules: Foul = 5 points, Tech Foul = 12 points
-    return (entry.foulsCommitted * 5) + (entry.techFoulsCommitted * 12);
+    return (gameData.foulsCommitted * 5) + (gameData.techFoulsCommitted * 12);
   },
 };
 ```
@@ -602,6 +612,7 @@ interface TBAMatch {
 **How It Works:**
 
 The framework handles:
+
 - ✅ Configurable thresholds (user can adjust via settings)
 - ✅ Severity calculation (critical/warning/minor/none)
 - ✅ Field-by-field comparison using game's mappings
@@ -609,6 +620,7 @@ The framework handles:
 - ✅ Detailed discrepancy reporting
 
 The game provides:
+
 - ✅ Category definitions (what types of data exist)
 - ✅ Field mappings (how to compare scouted vs TBA data)
 - ✅ Score calculation (how to sum alliance totals)
@@ -637,28 +649,28 @@ export const validation2025: ValidationRules = {
   ): FieldComparison[] {
     // Sum all scouted values across 3 robots
     const scoutedAuto = {
-      coralL1: allianceEntries.reduce((sum, e) => sum + e.autoCoralPlaceL1Count, 0),
-      coralL2: allianceEntries.reduce((sum, e) => sum + e.autoCoralPlaceL2Count, 0),
-      coralL3: allianceEntries.reduce((sum, e) => sum + e.autoCoralPlaceL3Count, 0),
-      coralL4: allianceEntries.reduce((sum, e) => sum + e.autoCoralPlaceL4Count, 0),
-      algaeNet: allianceEntries.reduce((sum, e) => sum + e.autoAlgaeNetCount, 0),
-      algaeProcessor: allianceEntries.reduce((sum, e) => sum + e.autoAlgaeProcessorCount, 0),
-      leave: allianceEntries.filter(e => e.autoLeave).length,
+      coralL1: allianceEntries.reduce((sum, e) => sum + e.gameData.autoCoralPlaceL1Count, 0),
+      coralL2: allianceEntries.reduce((sum, e) => sum + e.gameData.autoCoralPlaceL2Count, 0),
+      coralL3: allianceEntries.reduce((sum, e) => sum + e.gameData.autoCoralPlaceL3Count, 0),
+      coralL4: allianceEntries.reduce((sum, e) => sum + e.gameData.autoCoralPlaceL4Count, 0),
+      algaeNet: allianceEntries.reduce((sum, e) => sum + e.gameData.autoAlgaeNetCount, 0),
+      algaeProcessor: allianceEntries.reduce((sum, e) => sum + e.gameData.autoAlgaeProcessorCount, 0),
+      leave: allianceEntries.filter(e => e.gameData.autoLeave).length,
     };
     
     const scoutedTeleop = {
-      coralL1: allianceEntries.reduce((sum, e) => sum + e.teleopCoralPlaceL1Count, 0),
-      coralL2: allianceEntries.reduce((sum, e) => sum + e.teleopCoralPlaceL2Count, 0),
-      coralL3: allianceEntries.reduce((sum, e) => sum + e.teleopCoralPlaceL3Count, 0),
-      coralL4: allianceEntries.reduce((sum, e) => sum + e.teleopCoralPlaceL4Count, 0),
-      algaeNet: allianceEntries.reduce((sum, e) => sum + e.teleopAlgaeNetCount, 0),
-      algaeProcessor: allianceEntries.reduce((sum, e) => sum + e.teleopAlgaeProcessorCount, 0),
+      coralL1: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopCoralPlaceL1Count, 0),
+      coralL2: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopCoralPlaceL2Count, 0),
+      coralL3: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopCoralPlaceL3Count, 0),
+      coralL4: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopCoralPlaceL4Count, 0),
+      algaeNet: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopAlgaeNetCount, 0),
+      algaeProcessor: allianceEntries.reduce((sum, e) => sum + e.gameData.teleopAlgaeProcessorCount, 0),
     };
     
     const scoutedEndgame = {
-      deep: allianceEntries.filter(e => e.endgameAttempt === 'deep' && e.endgameSuccess).length,
-      shallow: allianceEntries.filter(e => e.endgameAttempt === 'shallow' && e.endgameSuccess).length,
-      park: allianceEntries.filter(e => e.endgameAttempt === 'park' && e.endgameSuccess).length,
+      deep: allianceEntries.filter(e => e.gameData.endgameAttempt === 'deep' && e.gameData.endgameSuccess).length,
+      shallow: allianceEntries.filter(e => e.gameData.endgameAttempt === 'shallow' && e.gameData.endgameSuccess).length,
+      park: allianceEntries.filter(e => e.gameData.endgameAttempt === 'park' && e.gameData.endgameSuccess).length,
     };
     
     // Extract TBA values (field names vary by year!)
@@ -748,12 +760,14 @@ export const validation2025: ValidationRules = {
 **Framework Usage:**
 
 The framework receives these mappings and:
+
 1. Applies user-configured thresholds to each field comparison
 2. Calculates severity (critical/warning/minor/none) based on thresholds
 3. Groups discrepancies by category for organized display
 4. Generates detailed validation report with color-coded warnings
 
 This separation means:
+
 - **Game code** stays simple: just define what to compare
 - **Framework code** handles complex threshold logic and UI
 - **Users** can customize thresholds without touching code
@@ -877,11 +891,11 @@ export const analysis2025: StrategyAnalysis = {
     
     // 2025-specific stats
     const avgCoralL4Count = entries.reduce((sum, e) => 
-      sum + e.autoCoralPlaceL4Count + e.teleopCoralPlaceL4Count, 0) / entries.length;
+      sum + e.gameData.autoCoralPlaceL4Count + e.gameData.teleopCoralPlaceL4Count, 0) / entries.length;
     const avgAlgaeNetCount = entries.reduce((sum, e) => 
-      sum + e.autoAlgaeNetCount + e.teleopAlgaeNetCount, 0) / entries.length;
+      sum + e.gameData.autoAlgaeNetCount + e.gameData.teleopAlgaeNetCount, 0) / entries.length;
     const climbSuccessRate = entries.filter(e => 
-      e.endgameSuccess && e.endgameAttempt !== 'none'
+      e.gameData.endgameSuccess && e.gameData.endgameAttempt !== 'none'
     ).length / entries.length;
     
     return {
@@ -923,7 +937,7 @@ export const advancedAnalysis2025: StrategyAnalysis = {
     if (stats.avgClimbSuccessRate > 0.8) strengths.push("Consistent climber");
     
     // Identify weaknesses
-    const breakageRate = entries.filter(e => e.robotBroke).length / entries.length;
+    const breakageRate = entries.filter(e => e.gameData.robotBroke).length / entries.length;
     if (breakageRate > 0.2) weaknesses.push("Reliability concerns");
     if (stats.avgAutoPoints < 5) weaknesses.push("Weak autonomous");
     
@@ -971,56 +985,48 @@ Game-specific UI components that plug into the framework's routing.
  */
 interface GameUIComponents {
   /**
-   * Starting position selection screen
-   * Shown before autonomous period scouting
+   * Match setup screen (team number, match number, alliance color)
+   * Shown at start of scouting flow
    */
-  GameStartScreen: React.ComponentType<GameStartProps>;
+  GameStartScreen: React.ComponentType<GameStartScreenProps>;
+  
+  /**
+   * Starting position selection screen (OPTIONAL)
+   * Shown before autonomous period scouting if team wants to track starting positions
+   */
+  AutoStartScreen?: React.ComponentType<AutoStartScreenProps>;
   
   /**
    * Autonomous period scouting screen
    */
-  AutoScreen: React.ComponentType<AutoScreenProps>;
+  AutoScoringScreen: React.ComponentType<ScoringScreenProps>;
   
   /**
    * Teleop period scouting screen
    */
-  ScoringScreen: React.ComponentType<ScoringScreenProps>;
+  TeleopScoringScreen: React.ComponentType<ScoringScreenProps>;
   
   /**
-   * Endgame scouting screen
+   * Endgame scouting screen (OPTIONAL)
+   * Some teams get endgame data from TBA API instead of scouting it
    */
-  EndgameScreen: React.ComponentType<EndgameScreenProps>;
-  
-  /**
-   * Match results summary screen
-   */
-  ResultsScreen: React.ComponentType<ResultsScreenProps>;
-  
-  /**
-   * Team statistics display
-   * Shown on team detail pages
-   */
-  TeamStatsDisplay: React.ComponentType<TeamStatsProps>;
-  
-  /**
-   * Match strategy display
-   * Shown on match strategy planning page
-   */
-  MatchStrategyDisplay: React.ComponentType<MatchStrategyProps>;
+  EndgameScreen?: React.ComponentType<ScoringScreenProps>;
 }
 
 // Props interfaces (framework provides these)
-interface GameStartProps {
+interface GameStartScreenProps {
   entry: GameScoutingEntry;
   onUpdate: (entry: Partial<GameScoutingEntry>) => void;
   onNext: () => void;
+  onCancel?: () => void;
 }
 
-interface AutoScreenProps {
+interface AutoStartScreenProps {
   entry: GameScoutingEntry;
   onUpdate: (entry: Partial<GameScoutingEntry>) => void;
   onNext: () => void;
   onBack: () => void;
+  onCancel?: () => void;
 }
 
 interface ScoringScreenProps {
@@ -1028,32 +1034,8 @@ interface ScoringScreenProps {
   onUpdate: (entry: Partial<GameScoutingEntry>) => void;
   onNext: () => void;
   onBack: () => void;
+  onCancel?: () => void;
 }
-
-interface EndgameScreenProps {
-  entry: GameScoutingEntry;
-  onUpdate: (entry: Partial<GameScoutingEntry>) => void;
-  onComplete: () => void;
-  onBack: () => void;
-}
-
-interface ResultsScreenProps {
-  entry: GameScoutingEntry;
-  scoring: ScoringCalculations;
-}
-
-interface TeamStatsProps {
-  teamNumber: number;
-  entries: GameScoutingEntry[];
-  analysis: RobotAnalysis;
-}
-
-interface MatchStrategyProps {
-  matchNumber: number;
-  alliance: 'red' | 'blue';
-  teams: Array<{
-    teamNumber: number;
-    entries: GameScoutingEntry[];
     analysis: RobotAnalysis;
   }>;
 }
@@ -1077,12 +1059,10 @@ maneuver-2025/
 │   │   ├── analysis.ts              # StrategyAnalysis implementation (basic stats)
 │   │   └── components/              # UI components
 │   │       ├── GameStartScreen.tsx
-│   │       ├── AutoScreen.tsx
-│   │       ├── ScoringScreen.tsx
-│   │       ├── EndgameScreen.tsx
-│   │       ├── ResultsScreen.tsx
-│   │       ├── TeamStatsDisplay.tsx
-│   │       └── MatchStrategyDisplay.tsx
+│   │       ├── AutoStartScreen.tsx (optional)
+│   │       ├── AutoScoringScreen.tsx
+│   │       ├── TeleopScoringScreen.tsx
+│   │       └── EndgameScreen.tsx (optional)
 │   └── ... (other app-specific code)
 └── package.json
 ```
@@ -1107,25 +1087,28 @@ export const game2025 = {
   
   // Helper: create empty scouting entry
   createEntry: (partial: Partial<ScoutingEntry2025>): ScoutingEntry2025 => ({
-    // Base fields
-    id: `${partial.eventKey || ''}::${partial.matchNumber || 0}::${partial.teamNumber || 0}::${partial.allianceColor || 'blue'}`,
+    // Base fields (framework-defined)
+    id: `${partial.eventKey || ''}::${partial.matchKey || 'qm0'}::${partial.teamNumber || 0}::${partial.allianceColor || 'blue'}`,
     scoutName: '',
     teamNumber: 0,
     matchNumber: 0,
     eventKey: '',
+    matchKey: '',
     allianceColor: 'blue',
     timestamp: Date.now(),
-    source: 'local',
     
-    // 2025-specific defaults
-    startingPosition: 0,
-    preloadedPiece: 'none',
-    autoLeave: false,
-    autoCoralPlaceL1Count: 0,
-    autoCoralPlaceL2Count: 0,
-    // ... all other fields with defaults
+    // Game-specific data (2025 defaults)
+    gameData: {
+      startingPosition: 0,
+      preloadedPiece: 'none',
+      autoLeave: false,
+      autoCoralPlaceL1Count: 0,
+      autoCoralPlaceL2Count: 0,
+      // ... all other 2025 fields with defaults
+      ...partial.gameData,
+    },
     
-    // Merge partial fields
+    // Merge partial base fields
     ...partial,
   }),
 };
@@ -1293,9 +1276,10 @@ This framework design succeeds if:
 
 ### Pit Scouting Interface
 
-**Status:** Needs design - pit scouting is **mixed** (some core, some game-specific)
+**Status:** ✅ **Implemented** - pit scouting uses the same `gameData` pattern as match scouting
 
 **Core pit scouting fields** (year-agnostic):
+
 - Robot dimensions (width, length, height)
 - Weight
 - Drive train type (e.g., swerve, tank, mecanum)
@@ -1304,23 +1288,29 @@ This framework design succeeds if:
 - Photos
 
 **Game-specific pit scouting** (varies by year):
+
 - 2025: "Can you score coral on L4?", "Algae capability?", "Climbing strategy?"
 - 2026: Different game pieces, different mechanisms
 
 **Proposed approach:**
+
 ```typescript
 interface PitScoutingBase {
   // Core fields (framework provides form)
   teamNumber: number;
   eventKey: string;
-  weight: number;
-  dimensions: { width: number; length: number; height: number };
-  driveType: string;
-  programmingLanguage: string;
-  photos: string[];  // URLs or base64
+  scoutName: string;
+  timestamp: number;
+  
+  // Universal pit scouting fields (year-agnostic)
+  robotPhoto?: string;              // Base64 or URL
+  weight?: number;                  // Robot weight in pounds
+  drivetrain?: DrivetrainType;      // 'swerve' | 'tank' | 'mecanum' | 'other'
+  programmingLanguage?: ProgrammingLanguage; // 'Java' | 'C++' | 'Python' | 'LabVIEW' | 'other'
+  notes?: string;                   // General observations
   
   // Game-specific fields
-  gameSpecificData: Record<string, any>;
+  gameData?: Record<string, unknown>;
 }
 
 interface PitScoutingRules {
@@ -1338,6 +1328,7 @@ interface PitScoutingQuestion {
 ```
 
 **Example 2025 implementation:**
+
 ```typescript
 export const pitScouting2025: PitScoutingRules = {
   getGameSpecificQuestions() {
@@ -1352,6 +1343,7 @@ export const pitScouting2025: PitScoutingRules = {
 ```
 
 This way:
+
 - Framework provides standard pit scouting form for universal fields
 - Game adds custom questions dynamically
 - 2026 game defines completely different questions
@@ -1360,16 +1352,18 @@ This way:
 
 ### QR Code Compression
 
-**Status:** Needs game-aware field mappings
+**Status:** 🔮 **Future Enhancement** (Phase 2) - Currently 2025-specific implementation
 
 **Challenge:** QR codes have size limits (~2,953 bytes). We use compression to fit match data.
 
 **Current approach (2025-specific):**
+
 - Custom bit-packing for known fields
 - Maps field names to short codes
 - Example: `autoCoralPlaceL4Count` → `aL4` → 3 bits
 
-**For framework:**
+**Future framework approach:**
+
 ```typescript
 interface DataCompressionRules {
   /**
@@ -1406,6 +1400,7 @@ Game implementations provide field mappings optimized for their data structure.
 **Challenge:** TBA's `score_breakdown` structure varies significantly by year.
 
 **2025 example:**
+
 ```json
 {
   "red": {
@@ -1418,6 +1413,7 @@ Game implementations provide field mappings optimized for their data structure.
 ```
 
 **2026 might be completely different:**
+
 ```json
 {
   "red": {
@@ -1429,25 +1425,6 @@ Game implementations provide field mappings optimized for their data structure.
 ```
 
 **Solution:** Already solved! Games implement `mapFieldsForValidation()` which handles year-specific TBA field names. No additional interface needed.
-
----
-
-### Match Predictions
-
-**Status:** ❌ Out of scope - use Statbotics
-
-**Decision:** Don't build match prediction algorithms. Statbotics already does this well and it's their core feature. Teams can use Statbotics API if they want predictions.
-
-**Not implementing:**
-- ~~Match outcome predictions~~
-- ~~EPA calculations~~
-- ~~Win probability estimates~~
-
-**Focus instead on:**
-- ✅ Accurate scouting data collection
-- ✅ Match validation (are we scouting correctly?)
-- ✅ Team statistics and analysis
-- ✅ Pick list support (based on actual performance data)
 
 ---
 

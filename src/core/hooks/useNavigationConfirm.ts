@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScoutingSession } from './useScoutingSession';
+import { clearScoutingLocalStorage } from '@/core/lib/utils';
 
 interface UseNavigationConfirmOptions {
   /**
@@ -34,6 +35,9 @@ export function useNavigationConfirm(options: UseNavigationConfirmOptions = {}) 
 
   const handleConfirm = useCallback(() => {
     if (pendingNavigation) {
+      // Clear all scouting data from localStorage before navigating away
+      clearScoutingLocalStorage();
+      
       navigate(pendingNavigation.destination);
       setPendingNavigation(null);
     }

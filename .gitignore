@@ -34,3 +34,9 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# Internal documentation (for maintainers building the framework, not for users)
+docs/CODEBASE_AUDIT.md
+docs/CORE_COPY_PLAN.md
+docs/TYPE_VALIDATION_REPORT.md
+docs/REVIEW_CHECKLIST.md

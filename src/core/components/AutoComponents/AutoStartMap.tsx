@@ -1,18 +1,18 @@
 import { cn } from "@/core/lib/utils";
 
 interface AutoStartMapProps {
-  startPoses: (boolean | null)[];
-  setStartPoses: React.Dispatch<React.SetStateAction<boolean | null>>[];
-  alliance?: string;
+  startPosition: (boolean | null)[];
+  setStartPosition: React.Dispatch<React.SetStateAction<boolean | null>>[];
+  alliance: string;
 }
 
-const AutoStartMap = ({ startPoses, setStartPoses, alliance }: AutoStartMapProps) => {
+const AutoStartMap = ({ startPosition, setStartPosition, alliance }: AutoStartMapProps) => {
   const handlePositionClick = (index: number) => {
     // Clear all positions first
-    setStartPoses.forEach((setter) => setter(false));
+    setStartPosition.forEach((setter) => setter(false));
     // Set the clicked position to true
-    if (setStartPoses[index]) {
-      setStartPoses[index](true);
+    if (setStartPosition[index]) {
+      setStartPosition[index](true);
     }
   };
 
@@ -30,7 +30,7 @@ const AutoStartMap = ({ startPoses, setStartPoses, alliance }: AutoStartMapProps
               onClick={() => handlePositionClick(index)}
               className={cn(
                 "w-24 h-24 rounded-lg border-2 flex items-center justify-center text-2xl font-bold transition-all hover:scale-105",
-                startPoses[index]
+                startPosition[index]
                   ? isRed
                     ? "bg-red-500 text-white border-red-700 shadow-lg"
                     : "bg-blue-500 text-white border-blue-700 shadow-lg"

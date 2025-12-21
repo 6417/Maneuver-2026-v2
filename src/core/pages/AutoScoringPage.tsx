@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/c
 import { Button } from "@/core/components/ui/button";
 import { Badge } from "@/core/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { ScoringSections, StatusToggles } from "@/game-template/components";
 
 const AutoScoringPage = () => {
   const location = useLocation();
@@ -16,26 +17,71 @@ const AutoScoringPage = () => {
     return saved ? JSON.parse(saved) : [];
   };
 
+  const getSavedStatus = () => {
+    const saved = localStorage.getItem("autoRobotStatus");
+    return saved ? JSON.parse(saved) : {};
+  };
+
+  const getSavedHistory = () => {
+    const saved = localStorage.getItem("autoUndoHistory");
+    return saved ? JSON.parse(saved) : [];
+  };
+
   const [scoringActions, setScoringActions] = useState(getSavedState());
+  const [robotStatus, setRobotStatus] = useState(getSavedStatus());
+  const [undoHistory, setUndoHistory] = useState(getSavedHistory());
 
   // Save state to localStorage whenever actions change
   useEffect(() => {
     localStorage.setItem("autoStateStack", JSON.stringify(scoringActions));
   }, [scoringActions]);
 
+  // Save robot status to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("autoRobotStatus", JSON.stringify(robotStatus));
+  }, [robotStatus]);
+
+  // Save undo history to localStorage
+  useEffect(() => {
+    localStorage.setItem("autoUndoHistory", JSON.stringify(undoHistory));
+  }, [undoHistory]);
+
   const addScoringAction = (action: any) => {
     const newAction = { ...action, timestamp: Date.now() };
     setScoringActions((prev: any) => [...prev, newAction]);
+    // Add to undo history
+    setUndoHistory((prev: any) => [...prev, { type: 'action', data: newAction }]);
     toast.success("Action recorded");
   };
 
+  const updateRobotStatus = (updates: Partial<any>) => {
+    // Save current state to undo history BEFORE updating
+    setUndoHistory((history: any) => [...history, { type: 'status', data: robotStatus }]);
+    // Update the status
+    setRobotStatus((prev: any) => ({ ...prev, ...updates }));
+    toast.success("Status updated");
+  };
+
   const undoLastAction = () => {
-    if (scoringActions.length === 0) {
+    if (undoHistory.length === 0) {
       toast.error("No actions to undo");
       return;
     }
-    setScoringActions((prev: any) => prev.slice(0, -1));
-    toast.success("Undid last action");
+    
+    const lastChange = undoHistory[undoHistory.length - 1];
+    
+    if (lastChange.type === 'action') {
+      // Undo scoring action
+      setScoringActions((prev: any) => prev.slice(0, -1));
+      toast.success("Undid last action");
+    } else if (lastChange.type === 'status') {
+      // Restore previous status
+      setRobotStatus(lastChange.data);
+      toast.success("Undid status change");
+    }
+    
+    // Remove from undo history
+    setUndoHistory((prev: any) => prev.slice(0, -1));
   };
 
   const handleBack = () => {
@@ -52,6 +98,7 @@ const AutoScoringPage = () => {
       state: {
         inputs: states?.inputs,
         autoStateStack: scoringActions,
+        autoRobotStatus: robotStatus,
         ...(states?.rescout && { rescout: states.rescout }),
       },
     });
@@ -67,44 +114,12 @@ const AutoScoringPage = () => {
         {/* Main Scoring Section */}
         <div className="w-full lg:flex-1 space-y-4 min-h-0 overflow-y-auto">
           
-          {/* Game Implementation: Add scoring components here */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Placeholder: Scoring Section 1</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Game Implementation: Replace with game-specific scoring (e.g., ReefScoringSection)
-              </p>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => addScoringAction({ type: "placeholder", description: "Placeholder action" })}
-                variant="outline"
-                className="w-full"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Placeholder Action
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Placeholder: Scoring Section 2</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Game Implementation: Replace with game-specific scoring (e.g., AlgaeSection)
-              </p>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => addScoringAction({ type: "placeholder2", description: "Another action" })}
-                variant="outline"
-                className="w-full"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Another Action
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Game-Specific Scoring Sections */}
+          <ScoringSections
+            phase="auto"
+            onAddAction={addScoringAction}
+            actions={scoringActions}
+          />
 
           {/* Action Buttons - Mobile Only */}
           <div className="flex lg:hidden gap-4 w-full">
@@ -160,17 +175,26 @@ const AutoScoringPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 h-40 overflow-y-auto pb-2">
-                {scoringActions.slice(-8).reverse().map((action: any, index: number) => (
+                {undoHistory.slice(-8).reverse().map((change: any, index: number) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {action.type} {action.description && `- ${action.description}`}
+                      {change.type === 'action' ? (
+                        <>
+                          {change.data.actionType || change.data.type || 'Action'}
+                          {change.data.pieceType && ` - ${change.data.pieceType}`}
+                          {change.data.location && ` @ ${change.data.location}`}
+                          {change.data.level && ` (${change.data.level})`}
+                        </>
+                      ) : (
+                        <span className="text-blue-600 dark:text-blue-400">Status Change</span>
+                      )}
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      #{scoringActions.length - index}
+                      #{undoHistory.length - index}
                     </Badge>
                   </div>
                 ))}
-                {scoringActions.length === 0 && (
+                {undoHistory.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-2">
                     No actions recorded yet
                   </p>
@@ -184,17 +208,12 @@ const AutoScoringPage = () => {
             <CardHeader>
               <CardTitle className="text-lg">Robot Status</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Game Implementation: Add robot status buttons here
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => addScoringAction({ type: "status", description: "Status change" })}
-                className="w-full h-10"
-              >
-                Placeholder Status Button
-              </Button>
+            <CardContent>
+              <StatusToggles
+                phase="auto"
+                status={robotStatus}
+                onStatusUpdate={updateRobotStatus}
+              />
             </CardContent>
           </Card>
 
@@ -202,10 +221,10 @@ const AutoScoringPage = () => {
           <Button
             variant="outline"
             onClick={undoLastAction}
-            disabled={scoringActions.length === 0}
+            disabled={undoHistory.length === 0}
             className="w-full"
           >
-            Undo Last Action
+            Undo Last Change
           </Button>
 
           {/* Action Buttons - Desktop Only */}

@@ -6,39 +6,48 @@ import { Badge } from "@/core/components/ui/badge";
 import { Textarea } from "@/core/components/ui/textarea";
 import { Label } from "@/core/components/ui/label";
 import { toast } from "sonner";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { db } from "@/core/db/database";
-
-interface EndgameAction {
-  type: string;
-  description?: string;
-  timestamp: number;
-}
+import { StatusToggles } from "@/game-template/components";
+import { gameDataTransformation } from "@/game-template/transformation";
+import { clearScoutingLocalStorage } from "@/core/lib/utils";
 
 const EndgamePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const states = location.state;
 
-  // Placeholder endgame state - replace with game-specific states
-  const [endgameActions, setEndgameActions] = useState<EndgameAction[]>([]);
+  const [robotStatus, setRobotStatus] = useState(() => {
+    const saved = localStorage.getItem("endgameRobotStatus");
+    return saved ? JSON.parse(saved) : {};
+  });
   const [comment, setComment] = useState("");
+
+  const updateRobotStatus = (updates: Partial<any>) => {
+    setRobotStatus((prev: any) => {
+      const newStatus = { ...prev, ...updates };
+      localStorage.setItem("endgameRobotStatus", JSON.stringify(newStatus));
+      return newStatus;
+    });
+    toast.success("Status updated");
+  };
 
   const getActionsFromLocalStorage = (phase: string) => {
     const saved = localStorage.getItem(`${phase}StateStack`);
     return saved ? JSON.parse(saved) : [];
   };
 
-  const handleAddEndgameAction = (action: Omit<EndgameAction, "timestamp">) => {
-    const newAction = { ...action, timestamp: Date.now() };
-    setEndgameActions((prev) => [...prev, newAction]);
-    toast.success("Action recorded");
+  const getRobotStatusFromLocalStorage = (phase: string) => {
+    const saved = localStorage.getItem(`${phase}RobotStatus`);
+    return saved ? JSON.parse(saved) : {};
   };
 
   const handleSubmit = async () => {
     try {
       const autoActions = getActionsFromLocalStorage("auto");
       const teleopActions = getActionsFromLocalStorage("teleop");
+      const autoRobotStatus = getRobotStatusFromLocalStorage("auto");
+      const teleopRobotStatus = getRobotStatusFromLocalStorage("teleop");
 
       // Extract match data from states
       const eventKey = states?.inputs?.eventName || localStorage.getItem("eventName") || "";
@@ -69,6 +78,16 @@ const EndgamePage = () => {
         matchNumber = parseInt(matchNumberStr) || 0;
       }
 
+      // Transform action arrays to counter fields using game-specific transformation
+      const transformedGameData = gameDataTransformation.transformActionsToCounters({
+        autoActions,
+        teleopActions,
+        autoRobotStatus,
+        teleopRobotStatus,
+        endgameRobotStatus: robotStatus,
+        startPosition: states?.inputs?.startPosition,
+      });
+
       // Create the scouting entry with proper structure matching ScoutingEntryBase from /src/types/
       // Using Record to bypass type checking since database still uses old structure
       const scoutingEntry: Record<string, unknown> = {
@@ -81,20 +100,14 @@ const EndgamePage = () => {
         allianceColor: allianceColor as 'red' | 'blue',
         timestamp: Date.now(),
         comments: comment,
-        gameData: {
-          autoActions,
-          teleopActions,
-          endgameActions,
-          startPosition: states?.inputs?.startPosition,
-        },
+        gameData: transformedGameData, // Store transformed counter fields (not action arrays)
       };
 
       // Save to database (cast to any since we're using new structure but database expects old)
       await db.scoutingData.put(scoutingEntry as never);
 
-      // Clear action stacks
-      localStorage.removeItem("autoStateStack");
-      localStorage.removeItem("teleopStateStack");
+      // Clear action stacks and robot status
+      clearScoutingLocalStorage();
 
       // Update match counter
       const currentMatchNumber = localStorage.getItem("currentMatchNumber") || "1";
@@ -116,7 +129,7 @@ const EndgamePage = () => {
       state: {
         ...states,
         endgameData: {
-          endgameActions,
+          robotStatus,
           comment,
         },
       },
@@ -176,52 +189,17 @@ const EndgamePage = () => {
           </Card>
         )}
 
-        {/* Endgame Actions Section - Game Specific */}
+        {/* Endgame Robot Status Section */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-lg">Endgame Actions</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Game Implementation: Replace with game-specific endgame actions (e.g., climbing, parking)
-            </p>
+            <CardTitle className="text-lg">Endgame Status</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-3">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  handleAddEndgameAction({
-                    type: "placeholder",
-                    description: "Placeholder endgame action",
-                  })
-                }
-                className="h-12"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Placeholder Endgame Action
-              </Button>
-            </div>
-
-            {/* Recent Endgame Actions */}
-            {endgameActions.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <Label>Recorded Actions ({endgameActions.length})</Label>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {endgameActions.map((action, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between text-sm p-2 rounded bg-muted"
-                    >
-                      <span>
-                        {action.type} {action.description && `- ${action.description}`}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        #{index + 1}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          <CardContent>
+            <StatusToggles
+              phase="endgame"
+              status={robotStatus}
+              onStatusUpdate={updateRobotStatus}
+            />
           </CardContent>
         </Card>
 

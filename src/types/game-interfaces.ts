@@ -48,6 +48,63 @@ export interface ScoringCalculations<T extends ScoutingEntryBase> {
 }
 
 /**
+ * Interface 3.5: DataTransformation
+ * 
+ * Game-specific logic for transforming action arrays into counter fields.
+ * 
+ * During match scouting, actions are recorded as timestamped objects in arrays:
+ * - autoActions: [{ type: 'score', pieceType: 'coral', level: 'l1', timestamp: 123 }]
+ * - teleopActions: [{ type: 'pickup', pieceType: 'algae', location: 'reef', timestamp: 456 }]
+ * 
+ * Before saving to the database, these arrays are transformed into counter fields:
+ * - autoCoralPlaceL1Count: 3
+ * - teleopAlgaePickReefCount: 2
+ * 
+ * This interface defines how that transformation happens for a specific game.
+ */
+export interface DataTransformation {
+  /**
+   * Transform action arrays and status objects into counter fields for database storage.
+   * 
+   * @param matchData - Raw match data containing action arrays and status objects
+   * @returns Object with counter fields ready for database storage
+   * 
+   * @example
+   * // Input:
+   * {
+   *   autoActions: [
+   *     { type: 'score', pieceType: 'coral', location: 'reef', level: 'l1', timestamp: 123 },
+   *     { type: 'score', pieceType: 'coral', location: 'reef', level: 'l1', timestamp: 456 }
+   *   ],
+   *   teleopActions: [
+   *     { type: 'pickup', pieceType: 'algae', location: 'reef', timestamp: 789 }
+   *   ],
+   *   endgameRobotStatus: {
+   *     deepClimbAttempted: true,
+   *     climbFailed: false
+   *   }
+   * }
+   * 
+   * // Output:
+   * {
+   *   autoCoralPlaceL1Count: 2,
+   *   teleopAlgaePickReefCount: 1,
+   *   deepClimbAttempted: true,
+   *   climbFailed: false
+   * }
+   */
+  transformActionsToCounters(matchData: {
+    autoActions?: any[];
+    teleopActions?: any[];
+    autoRobotStatus?: Record<string, any>;
+    teleopRobotStatus?: Record<string, any>;
+    endgameRobotStatus?: Record<string, any>;
+    startPosition?: boolean[]; // Array of starting positions (converted to auto.startPosition)
+    [key: string]: any; // Allow additional fields (comments, etc.)
+  }): Record<string, any>;
+}
+
+/**
  * Interface 4: ValidationRules
  * 
  * Game-specific validation logic for comparing scouted data with TBA.
