@@ -1,17 +1,13 @@
 /**
- * Game-Specific Strategy Analysis
+ * Game-Specific Strategy Analysis - 2026 REBUILT
  * 
  * This module provides team statistics calculations and display configuration
  * for the Team Statistics page.
  * 
- * HOW TO CUSTOMIZE FOR YOUR GAME YEAR:
- * ====================================
- * 
- * 1. Update calculateBasicStats() to compute your game's metrics
- * 2. Update getStatSections() to define stat cards for each tab
- * 3. Update getRateSections() to define progress bar sections
- * 4. Update getMatchBadges() to define match-by-match indicators
- * 5. Update getStartPositionConfig() for your field layout
+ * 2026 GAME: REBUILT
+ * - Primary: Fuel scoring (bulk counters)
+ * - Secondary: Tower climbing (3 levels)
+ * - New: Auto L1 climb for bonus points
  */
 
 import type { StrategyAnalysis, TeamStats } from "@/types/game-interfaces";
@@ -24,8 +20,9 @@ import type {
 } from "@/types/team-stats-display";
 import { scoringCalculations } from "@/game-template/scoring";
 import type { GameData as CoreGameData } from "@/game-template/scoring";
-import fieldMapImage from "@/game-template/assets/FieldMap.png";
-import fieldMapBlueImage from "@/game-template/assets/FieldMapBlue.png";
+// Use 2026 field images
+import fieldMapRedImage from "@/game-template/assets/2026-field-red.png";
+import fieldMapBlueImage from "@/game-template/assets/2026-field-blue.png";
 
 
 /**
@@ -37,8 +34,7 @@ type ScoutingEntryTemplate = ScoutingEntryBase & {
 };
 
 /**
- * Template team statistics type
- * CUSTOMIZE: Add your game-specific calculated stats
+ * Team statistics for 2026 REBUILT
  */
 interface TeamStatsTemplate extends TeamStats {
     // Point averages
@@ -47,16 +43,21 @@ interface TeamStatsTemplate extends TeamStats {
     avgTeleopPoints: number;
     avgEndgamePoints: number;
 
-    // Game-specific averages
-    avgAutoAction1: number;
-    avgAutoAction2: number;
-    avgTeleopAction1: number;
-    avgTeleopAction2: number;
+    // Fuel averages
+    avgAutoFuel: number;
+    avgTeleopFuel: number;
+    avgFuelPassed: number;
+    avgTotalFuel: number;
 
     // Rate metrics (0-100%)
     mobilityRate: number;
-    endgameSuccessRate: number;
-    breakdownRate: number;
+    autoClimbRate: number;
+    climbL1Rate: number;
+    climbL2Rate: number;
+    climbL3Rate: number;
+    climbSuccessRate: number;
+    defenseRate: number;
+    trenchRate: number;
 
     // Start position percentages
     startPositions: Record<string, number>;
@@ -67,7 +68,6 @@ interface TeamStatsTemplate extends TeamStats {
 
 /**
  * Match result data for performance display
- * SINGLE SOURCE OF TRUTH: Used by PerformanceAnalysis and MatchStatsDialog
  */
 export interface MatchResult {
     matchNumber: string;
@@ -80,23 +80,23 @@ export interface MatchResult {
     teleopPoints: number;
     endgamePoints: number;
     endgameSuccess: boolean;
+    climbLevel: number; // 0=none, 1-3=level
     brokeDown: boolean;
     startPosition: number;
     comment: string;
-    // Allow additional game-specific fields
+    // Fuel data
+    autoFuel: number;
+    teleopFuel: number;
+    fuelPassed: number;
     [key: string]: unknown;
 }
 
 /**
- * Strategy Analysis Implementation
- * 
- * CUSTOMIZE: Update all methods for your game year
+ * Strategy Analysis Implementation for 2026
  */
 export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
     /**
      * Calculate basic statistics for a team
-     * 
-     * CUSTOMIZE: Update this method with your game's scoring logic
      */
     calculateBasicStats(entries: ScoutingEntryTemplate[]): TeamStatsTemplate {
         const matchCount = entries.length;
@@ -121,29 +121,40 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
                 avgAutoPoints: 0,
                 avgTeleopPoints: 0,
                 avgEndgamePoints: 0,
-                avgAutoAction1: 0,
-                avgAutoAction2: 0,
-                avgTeleopAction1: 0,
-                avgTeleopAction2: 0,
+                avgAutoFuel: 0,
+                avgTeleopFuel: 0,
+                avgFuelPassed: 0,
+                avgTotalFuel: 0,
                 mobilityRate: 0,
-                endgameSuccessRate: 0,
-                breakdownRate: 0,
+                autoClimbRate: 0,
+                climbL1Rate: 0,
+                climbL2Rate: 0,
+                climbL3Rate: 0,
+                climbSuccessRate: 0,
+                defenseRate: 0,
+                trenchRate: 0,
                 startPositions: {},
                 matchResults: [],
             };
         }
 
         // Calculate totals
-        // CUSTOMIZE: Add your game's scoring calculations
-        // Access game-specific data through entry.gameData
         const totals = entries.reduce((acc, entry) => {
             const gameData = entry.gameData;
-            acc.autoAction1 += gameData?.auto?.action1Count || 0;
-            acc.autoAction2 += gameData?.auto?.action2Count || 0;
-            acc.teleopAction1 += gameData?.teleop?.action1Count || 0;
-            acc.teleopAction2 += gameData?.teleop?.action2Count || 0;
-            acc.endgameSuccess += gameData?.endgame?.option1 ? 1 : 0;
-            acc.breakdown += gameData?.endgame?.option2 ? 1 : 0;
+
+            // Fuel counts
+            acc.autoFuel += gameData?.auto?.fuelScoredCount || 0;
+            acc.teleopFuel += gameData?.teleop?.fuelScoredCount || 0;
+            acc.fuelPassed += (gameData?.auto?.fuelPassedCount || 0) + (gameData?.teleop?.fuelPassedCount || 0);
+
+            // Toggles
+            acc.mobility += gameData?.auto?.leftStartZone ? 1 : 0;
+            acc.autoClimb += gameData?.auto?.autoClimbL1 ? 1 : 0;
+            acc.climbL1 += gameData?.endgame?.climbL1 ? 1 : 0;
+            acc.climbL2 += gameData?.endgame?.climbL2 ? 1 : 0;
+            acc.climbL3 += gameData?.endgame?.climbL3 ? 1 : 0;
+            acc.defense += gameData?.teleop?.playedDefense ? 1 : 0;
+            acc.trench += gameData?.teleop?.underTrench ? 1 : 0;
 
             // Track start positions
             const pos = gameData?.auto?.startPosition;
@@ -153,22 +164,30 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
 
             return acc;
         }, {
-            autoAction1: 0,
-            autoAction2: 0,
-            teleopAction1: 0,
-            teleopAction2: 0,
-            endgameSuccess: 0,
-            breakdown: 0,
+            autoFuel: 0,
+            teleopFuel: 0,
+            fuelPassed: 0,
+            mobility: 0,
+            autoClimb: 0,
+            climbL1: 0,
+            climbL2: 0,
+            climbL3: 0,
+            defense: 0,
+            trench: 0,
             startPositionCounts: {} as Record<number, number>,
         });
 
         // Calculate match results
-        // CUSTOMIZE: Update point calculations for your game
         const matchResults: MatchResult[] = entries.map(entry => {
             const autoPoints = scoringCalculations.calculateAutoPoints(entry as any);
             const teleopPoints = scoringCalculations.calculateTeleopPoints(entry as any);
             const endgamePoints = scoringCalculations.calculateEndgamePoints(entry as any);
-            const endgameSuccess = entry.gameData?.endgame?.option1 || false;
+
+            // Determine climb level
+            let climbLevel = 0;
+            if (entry.gameData?.endgame?.climbL3) climbLevel = 3;
+            else if (entry.gameData?.endgame?.climbL2) climbLevel = 2;
+            else if (entry.gameData?.endgame?.climbL1) climbLevel = 1;
 
             return {
                 matchNumber: String(entry.matchNumber),
@@ -180,11 +199,14 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
                 autoPoints,
                 teleopPoints,
                 endgamePoints,
-                endgameSuccess: endgameSuccess || false,
-                brokeDown: entry.gameData?.endgame?.option2 || false,
+                endgameSuccess: climbLevel > 0,
+                climbLevel,
+                brokeDown: entry.gameData?.endgame?.climbFailed || false,
                 startPosition: entry.gameData?.auto?.startPosition ?? -1,
                 comment: entry.comments || '',
-                // Include all action counts for the dialog
+                autoFuel: entry.gameData?.auto?.fuelScoredCount || 0,
+                teleopFuel: entry.gameData?.teleop?.fuelScoredCount || 0,
+                fuelPassed: (entry.gameData?.auto?.fuelPassedCount || 0) + (entry.gameData?.teleop?.fuelPassedCount || 0),
                 gameData: entry.gameData,
             };
         });
@@ -198,6 +220,7 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
         const avgAutoPoints = matchResults.reduce((sum, m) => sum + m.autoPoints, 0) / matchCount;
         const avgTeleopPoints = matchResults.reduce((sum, m) => sum + m.teleopPoints, 0) / matchCount;
         const avgEndgamePoints = matchResults.reduce((sum, m) => sum + m.endgamePoints, 0) / matchCount;
+        const climbSuccessCount = totals.climbL1 + totals.climbL2 + totals.climbL3;
 
         return {
             // Base TeamStats required fields
@@ -210,25 +233,25 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
             endgamePoints: matchResults.reduce((sum, m) => sum + m.endgamePoints, 0),
             overall: {
                 avgTotalPoints: Math.round((avgAutoPoints + avgTeleopPoints + avgEndgamePoints) * 10) / 10,
-                totalPiecesScored: totals.autoAction1 + totals.autoAction2 + totals.teleopAction1 + totals.teleopAction2,
-                avgGamePiece1: Math.round(((totals.autoAction1 + totals.teleopAction1) / matchCount) * 10) / 10,
-                avgGamePiece2: Math.round(((totals.autoAction2 + totals.teleopAction2) / matchCount) * 10) / 10,
+                totalPiecesScored: Math.round((totals.autoFuel + totals.teleopFuel) / matchCount * 10) / 10,
+                avgGamePiece1: Math.round(((totals.autoFuel + totals.teleopFuel) / matchCount) * 10) / 10,
+                avgGamePiece2: Math.round((totals.fuelPassed / matchCount) * 10) / 10,
             },
             auto: {
                 avgPoints: Math.round(avgAutoPoints * 10) / 10,
-                avgGamePiece1: Math.round((totals.autoAction1 / matchCount) * 10) / 10,
-                avgGamePiece2: Math.round((totals.autoAction2 / matchCount) * 10) / 10,
-                mobilityRate: 0,
+                avgGamePiece1: Math.round((totals.autoFuel / matchCount) * 10) / 10,
+                avgGamePiece2: 0,
+                mobilityRate: Math.round((totals.mobility / matchCount) * 100),
                 startPositions: Object.entries(startPositions).map(([key, value]) => ({ position: key, percentage: value })),
             },
             teleop: {
                 avgPoints: Math.round(avgTeleopPoints * 10) / 10,
-                avgGamePiece1: Math.round((totals.teleopAction1 / matchCount) * 10) / 10,
-                avgGamePiece2: Math.round((totals.teleopAction2 / matchCount) * 10) / 10,
+                avgGamePiece1: Math.round((totals.teleopFuel / matchCount) * 10) / 10,
+                avgGamePiece2: Math.round((totals.fuelPassed / matchCount) * 10) / 10,
             },
             endgame: {
                 avgPoints: Math.round(avgEndgamePoints * 10) / 10,
-                climbRate: Math.round((totals.endgameSuccess / matchCount) * 100),
+                climbRate: Math.round((climbSuccessCount / matchCount) * 100),
                 parkRate: 0,
             },
             // Template-specific fields
@@ -237,13 +260,18 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
             avgAutoPoints: Math.round(avgAutoPoints * 10) / 10,
             avgTeleopPoints: Math.round(avgTeleopPoints * 10) / 10,
             avgEndgamePoints: Math.round(avgEndgamePoints * 10) / 10,
-            avgAutoAction1: Math.round((totals.autoAction1 / matchCount) * 10) / 10,
-            avgAutoAction2: Math.round((totals.autoAction2 / matchCount) * 10) / 10,
-            avgTeleopAction1: Math.round((totals.teleopAction1 / matchCount) * 10) / 10,
-            avgTeleopAction2: Math.round((totals.teleopAction2 / matchCount) * 10) / 10,
-            mobilityRate: 0, // CUSTOMIZE: Add mobility tracking
-            endgameSuccessRate: Math.round((totals.endgameSuccess / matchCount) * 100),
-            breakdownRate: Math.round((totals.breakdown / matchCount) * 100),
+            avgAutoFuel: Math.round((totals.autoFuel / matchCount) * 10) / 10,
+            avgTeleopFuel: Math.round((totals.teleopFuel / matchCount) * 10) / 10,
+            avgFuelPassed: Math.round((totals.fuelPassed / matchCount) * 10) / 10,
+            avgTotalFuel: Math.round(((totals.autoFuel + totals.teleopFuel) / matchCount) * 10) / 10,
+            mobilityRate: Math.round((totals.mobility / matchCount) * 100),
+            autoClimbRate: Math.round((totals.autoClimb / matchCount) * 100),
+            climbL1Rate: Math.round((totals.climbL1 / matchCount) * 100),
+            climbL2Rate: Math.round((totals.climbL2 / matchCount) * 100),
+            climbL3Rate: Math.round((totals.climbL3 / matchCount) * 100),
+            climbSuccessRate: Math.round((climbSuccessCount / matchCount) * 100),
+            defenseRate: Math.round((totals.defense / matchCount) * 100),
+            trenchRate: Math.round((totals.trench / matchCount) * 100),
             startPositions,
             matchResults: matchResults.sort((a, b) => parseInt(a.matchNumber) - parseInt(b.matchNumber)),
         };
@@ -251,8 +279,6 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
 
     /**
      * Get stat sections for the Team Statistics page
-     * 
-     * CUSTOMIZE: Define stat cards for Overview and Scoring tabs
      */
     getStatSections(): StatSectionDefinition[] {
         return [
@@ -269,28 +295,35 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
                     { key: 'avgEndgamePoints', label: 'Endgame Points', type: 'number', color: 'orange' },
                 ],
             },
-
-            // Scoring tab - auto scoring
             {
-                id: 'auto-scoring',
-                title: 'Auto Scoring',
-                tab: 'scoring',
+                id: 'fuel-overview',
+                title: 'Fuel Scoring',
+                tab: 'overview',
                 columns: 2,
                 stats: [
-                    { key: 'avgAutoAction1', label: 'Action 1', type: 'number', subtitle: 'avg per match' },
-                    { key: 'avgAutoAction2', label: 'Action 2', type: 'number', subtitle: 'avg per match' },
+                    { key: 'avgTotalFuel', label: 'Total Fuel', type: 'number', color: 'yellow', subtitle: 'avg per match' },
+                    { key: 'avgFuelPassed', label: 'Fuel Passed', type: 'number', color: 'blue', subtitle: 'avg per match' },
                 ],
             },
 
-            // Scoring tab - teleop scoring
+            // Scoring tab - fuel breakdown
             {
-                id: 'teleop-scoring',
-                title: 'Teleop Scoring',
+                id: 'auto-scoring',
+                title: 'Auto Fuel',
                 tab: 'scoring',
                 columns: 2,
                 stats: [
-                    { key: 'avgTeleopAction1', label: 'Action 1', type: 'number', subtitle: 'avg per match' },
-                    { key: 'avgTeleopAction2', label: 'Action 2', type: 'number', subtitle: 'avg per match' },
+                    { key: 'avgAutoFuel', label: 'Auto Fuel Scored', type: 'number', subtitle: 'avg per match' },
+                ],
+            },
+            {
+                id: 'teleop-scoring',
+                title: 'Teleop Fuel',
+                tab: 'scoring',
+                columns: 2,
+                stats: [
+                    { key: 'avgTeleopFuel', label: 'Teleop Fuel Scored', type: 'number', subtitle: 'avg per match' },
+                    { key: 'avgFuelPassed', label: 'Fuel Passed', type: 'number', subtitle: 'avg per match' },
                 ],
             },
         ];
@@ -298,8 +331,6 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
 
     /**
      * Get rate sections (progress bars) for the Team Statistics page
-     * 
-     * CUSTOMIZE: Define progress bar sections for Overview and Performance tabs
      */
     getRateSections(): RateSectionDefinition[] {
         return [
@@ -309,18 +340,27 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
                 tab: 'overview',
                 rates: [
                     { key: 'mobilityRate', label: 'Mobility Rate' },
-                    { key: 'endgameSuccessRate', label: 'Endgame Success Rate' },
-                    { key: 'breakdownRate', label: 'Breakdown Rate' },
+                    { key: 'climbSuccessRate', label: 'Climb Success Rate' },
+                    { key: 'autoClimbRate', label: 'Auto Climb Rate' },
                 ],
             },
             {
-                id: 'reliability-metrics',
-                title: 'Reliability Metrics',
+                id: 'climb-breakdown',
+                title: 'Climb Breakdown',
                 tab: 'performance',
                 rates: [
-                    { key: 'mobilityRate', label: 'Mobility Success' },
-                    { key: 'endgameSuccessRate', label: 'Endgame Success' },
-                    { key: 'breakdownRate', label: 'Breakdown Rate' },
+                    { key: 'climbL1Rate', label: 'Level 1 (10 pts)' },
+                    { key: 'climbL2Rate', label: 'Level 2 (20 pts)' },
+                    { key: 'climbL3Rate', label: 'Level 3 (30 pts)' },
+                ],
+            },
+            {
+                id: 'playstyle',
+                title: 'Playstyle Metrics',
+                tab: 'performance',
+                rates: [
+                    { key: 'defenseRate', label: 'Defense Played' },
+                    { key: 'trenchRate', label: 'Used Trench' },
                 ],
             },
         ];
@@ -328,36 +368,30 @@ export const strategyAnalysis: StrategyAnalysis<ScoutingEntryTemplate> = {
 
     /**
      * Get match badges for match-by-match performance list
-     * 
-     * CUSTOMIZE: Define game-specific badges (e.g., "Climbed", "Broke Down")
      */
     getMatchBadges(): MatchBadgeDefinition[] {
         return [
-            { key: 'endgameSuccess', label: 'Endgame ✓', variant: 'secondary', showWhen: true },
-            { key: 'brokeDown', label: 'Broke Down', variant: 'destructive', showWhen: true },
+            { key: 'endgameSuccess', label: 'Climbed', variant: 'secondary', showWhen: true },
+            { key: 'brokeDown', label: 'Failed', variant: 'destructive', showWhen: true },
         ];
     },
 
     /**
-     * Get start position configuration
-     * 
-     * CUSTOMIZE: Define positions for your game's field layout
-     * Zones are relative to a 640x480 base canvas
+     * Get start position configuration for 2026 field
+     * Uses the 2026 field images with starting positions along the alliance wall
      */
     getStartPositionConfig(): StartPositionConfig {
         return {
-            positionCount: 5, // 2025 Reefscape: 5 horizontal starting positions
-            positionLabels: ['Position 0', 'Position 1', 'Position 2', 'Position 3', 'Position 4'],
-            positionColors: ['blue', 'blue', 'blue', 'blue', 'blue'],
-            fieldImageRed: fieldMapImage, // Red alliance field map
-            fieldImageBlue: fieldMapBlueImage, // Blue alliance field map
-            // Zone definitions for the auto start position map (640x480 base)
+            positionCount: 3, // 3 starting positions along the alliance wall
+            positionLabels: ['Left', 'Center', 'Right'],
+            positionColors: ['blue', 'blue', 'blue'],
+            fieldImageRed: fieldMapRedImage,
+            fieldImageBlue: fieldMapBlueImage,
+            // Zone definitions for the auto start position map (based on field image layout)
             zones: [
-                { x: 0, y: 50, width: 128, height: 100, position: 0 },
-                { x: 128, y: 50, width: 128, height: 100, position: 1 },
-                { x: 256, y: 50, width: 128, height: 100, position: 2 },
-                { x: 384, y: 50, width: 128, height: 100, position: 3 },
-                { x: 512, y: 50, width: 128, height: 100, position: 4 },
+                { x: 10, y: 150, width: 180, height: 180, position: 0, label: 'Left' },
+                { x: 230, y: 150, width: 180, height: 180, position: 1, label: 'Center' },
+                { x: 450, y: 150, width: 180, height: 180, position: 2, label: 'Right' },
             ],
         };
     },

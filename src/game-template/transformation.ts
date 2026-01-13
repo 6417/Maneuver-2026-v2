@@ -1,25 +1,26 @@
 /**
- * Game-Specific Data Transformation
+ * Game-Specific Data Transformation - 2026 REBUILT
  * 
- * Transforms action arrays from match scouting into counter fields for database storage.
+ * Transforms action data from match scouting into counter fields for database storage.
+ * 
+ * 2026 uses bulk counter approach:
+ * - fuelScored: Fuel deposited into hub (tracked with +1/+5/+10 increments)
+ * - fuelPassed: Fuel passed to alliance partners
  * 
  * DERIVED FROM: game-schema.ts
- * All action types and toggle names come from the schema.
  */
 
 import type { DataTransformation } from "@/types/game-interfaces";
-import { toggles, getActionKeys, getActionPoints, type ActionKey } from "./game-schema";
+import { toggles, getActionKeys, type ActionKey } from "./game-schema";
 
 /**
- * Generate default values for all action counters
+ * Generate default values for action counters
+ * For 2026, we use bulk counters so the schema defines all actions for both phases
  */
-function generateActionDefaults(phase: 'auto' | 'teleop'): Record<string, number> {
+function generateActionDefaults(): Record<string, number> {
   const defaults: Record<string, number> = {};
   getActionKeys().forEach(key => {
-    // Only verify points for the specific phase using getActionPoints
-    if (getActionPoints(key, phase) > 0) {
-      defaults[`${key}Count`] = 0;
-    }
+    defaults[`${key}Count`] = 0;
   });
   return defaults;
 }
@@ -45,14 +46,15 @@ export const gameDataTransformation: DataTransformation = {
       : null;
 
     // Initialize with schema-derived defaults
+    // For 2026, counters are the same in auto and teleop (bulk counting)
     const result: Record<string, any> = {
       auto: {
         startPosition,
-        ...generateActionDefaults('auto'),
+        ...generateActionDefaults(),
         ...generateToggleDefaults('auto'),
       },
       teleop: {
-        ...generateActionDefaults('teleop'),
+        ...generateActionDefaults(),
         ...generateToggleDefaults('teleop'),
       },
       endgame: {
@@ -60,23 +62,47 @@ export const gameDataTransformation: DataTransformation = {
       },
     };
 
-    // Count actions from action arrays
-    // Action types are derived from schema keys
+    // Process auto data
+    // For 2026, data comes as counter values directly (from bulk counter UI)
+    if (matchData.autoData) {
+      const actionKeys = getActionKeys();
+      actionKeys.forEach(key => {
+        const countKey = `${key}Count`;
+        if (matchData.autoData[countKey] !== undefined) {
+          result.auto[countKey] = matchData.autoData[countKey];
+        }
+      });
+    }
+
+    // Process teleop data
+    if (matchData.teleopData) {
+      const actionKeys = getActionKeys();
+      actionKeys.forEach(key => {
+        const countKey = `${key}Count`;
+        if (matchData.teleopData[countKey] !== undefined) {
+          result.teleop[countKey] = matchData.teleopData[countKey];
+        }
+      });
+    }
+
+    // Legacy support: Also handle action arrays if present
     const actionKeys = getActionKeys();
 
     matchData.autoActions?.forEach((action: any) => {
       const actionType = action.actionType as ActionKey;
-      if (actionKeys.includes(actionType) && getActionPoints(actionType, 'auto') > 0) {
+      if (actionKeys.includes(actionType)) {
         const countKey = `${actionType}Count`;
-        result.auto[countKey] = (result.auto[countKey] || 0) + 1;
+        const increment = action.increment ?? 1;
+        result.auto[countKey] = (result.auto[countKey] || 0) + increment;
       }
     });
 
     matchData.teleopActions?.forEach((action: any) => {
       const actionType = action.actionType as ActionKey;
-      if (actionKeys.includes(actionType) && getActionPoints(actionType, 'teleop') > 0) {
+      if (actionKeys.includes(actionType)) {
         const countKey = `${actionType}Count`;
-        result.teleop[countKey] = (result.teleop[countKey] || 0) + 1;
+        const increment = action.increment ?? 1;
+        result.teleop[countKey] = (result.teleop[countKey] || 0) + increment;
       }
     });
 
@@ -89,6 +115,8 @@ export const gameDataTransformation: DataTransformation = {
     const additionalFields = { ...matchData };
     delete additionalFields.autoActions;
     delete additionalFields.teleopActions;
+    delete additionalFields.autoData;
+    delete additionalFields.teleopData;
     delete additionalFields.autoRobotStatus;
     delete additionalFields.teleopRobotStatus;
     delete additionalFields.endgameRobotStatus;

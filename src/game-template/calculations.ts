@@ -1,12 +1,11 @@
 /**
- * Centralized Team Statistics Calculations
+ * Centralized Team Statistics Calculations - 2026 REBUILT
  * 
  * This is the SINGLE SOURCE OF TRUTH for all team stat calculations.
  * All pages (Strategy Overview, Match Strategy, etc.) should use this
  * via the useAllTeamStats hook instead of calculating their own stats.
  * 
- * YEAR-AGNOSTIC: Uses generic gameData fields (action1Count, action2Count, etc.)
- * instead of game-specific names. Customize the mapping in your game-template.
+ * 2026 GAME: Uses fuelScoredCount, fuelPassedCount, and climb toggles
  */
 
 import type { ScoutingEntry } from "@/game-template/scoring";
@@ -23,7 +22,7 @@ const round = (n: number, decimals: number = 1): number =>
 const percent = (count: number, total: number): number =>
     total > 0 ? Math.round((count / total) * 100) : 0;
 
-const val = (n: number | undefined): number => n || 0;
+const val = (n: number | unknown): number => (typeof n === 'number' ? n : 0);
 
 /**
  * Calculate all statistics for a single team from their match entries.
@@ -52,54 +51,62 @@ export const calculateTeamStats = (teamMatches: ScoutingEntry[]): Omit<TeamStats
     const totalPoints = totalAutoPoints + totalTeleopPoints + totalEndgamePoints;
 
     // ============================================================================
-    // GAME PIECE CALCULATIONS (Generic: action1 = game piece type 1, action2 = type 2)
+    // FUEL CALCULATIONS (2026 Game)
     // ============================================================================
 
-    // Auto game pieces
-    const autoGamePiece1Total = sum(teamMatches, m =>
-        val(m.gameData?.auto?.action1Count) + val(m.gameData?.auto?.action2Count)
+    // Auto fuel
+    const autoFuelTotal = sum(teamMatches, m =>
+        val(m.gameData?.auto?.fuelScoredCount)
     );
 
-    const autoGamePiece2Total = sum(teamMatches, m =>
-        val(m.gameData?.auto?.action3Count) + val(m.gameData?.auto?.action4Count)
+    const autoFuelPassedTotal = sum(teamMatches, m =>
+        val(m.gameData?.auto?.fuelPassedCount)
     );
 
-    // Teleop game pieces
-    const teleopGamePiece1Total = sum(teamMatches, m =>
-        val(m.gameData?.teleop?.action1Count) + val(m.gameData?.teleop?.action2Count)
+    // Teleop fuel
+    const teleopFuelTotal = sum(teamMatches, m =>
+        val(m.gameData?.teleop?.fuelScoredCount)
     );
 
-    const teleopGamePiece2Total = sum(teamMatches, m =>
-        val(m.gameData?.teleop?.action3Count)
+    const teleopFuelPassedTotal = sum(teamMatches, m =>
+        val(m.gameData?.teleop?.fuelPassedCount)
     );
 
-    // Total game pieces
-    const totalGamePiece1 = autoGamePiece1Total + teleopGamePiece1Total;
-    const totalGamePiece2 = autoGamePiece2Total + teleopGamePiece2Total;
-    const totalPieces = totalGamePiece1 + totalGamePiece2;
+    // Total fuel
+    const totalFuelScored = autoFuelTotal + teleopFuelTotal;
+    const totalFuelPassed = autoFuelPassedTotal + teleopFuelPassedTotal;
+    const totalPieces = totalFuelScored; // For compatibility
 
     // ============================================================================
     // AUTO PHASE STATS
     // ============================================================================
 
-    // Mobility indicator (using autoToggle from schema)
-    const mobilityCount = teamMatches.filter(m => m.gameData?.auto?.autoToggle === true).length;
+    // Mobility (left start zone)
+    const mobilityCount = teamMatches.filter(m => m.gameData?.auto?.leftStartZone === true).length;
+
+    // Auto climb (new for 2026!)
+    const autoClimbCount = teamMatches.filter(m => m.gameData?.auto?.autoClimbL1 === true).length;
 
     // Starting positions
     const startPositions = calculateStartPositions(teamMatches, matchCount);
 
     // ============================================================================
-    // ENDGAME STATS (Generic: option1-5, toggle1-2 as boolean flags)
+    // ENDGAME STATS (Tower Climbing - 2026)
     // ============================================================================
 
-    // Calculate rates for all endgame boolean options
-    const option1Count = teamMatches.filter(m => m.gameData?.endgame?.option1 === true).length;
-    const option2Count = teamMatches.filter(m => m.gameData?.endgame?.option2 === true).length;
-    const option3Count = teamMatches.filter(m => m.gameData?.endgame?.option3 === true).length;
-    const option4Count = teamMatches.filter(m => m.gameData?.endgame?.option4 === true).length;
-    const option5Count = teamMatches.filter(m => m.gameData?.endgame?.option5 === true).length;
-    const toggle1Count = teamMatches.filter(m => m.gameData?.endgame?.toggle1 === true).length;
-    const toggle2Count = teamMatches.filter(m => m.gameData?.endgame?.toggle2 === true).length;
+    const climbL1Count = teamMatches.filter(m => m.gameData?.endgame?.climbL1 === true).length;
+    const climbL2Count = teamMatches.filter(m => m.gameData?.endgame?.climbL2 === true).length;
+    const climbL3Count = teamMatches.filter(m => m.gameData?.endgame?.climbL3 === true).length;
+    const climbFailedCount = teamMatches.filter(m => m.gameData?.endgame?.climbFailed === true).length;
+    const noClimbCount = teamMatches.filter(m => m.gameData?.endgame?.noClimb === true).length;
+    const climbSuccessCount = climbL1Count + climbL2Count + climbL3Count;
+
+    // ============================================================================
+    // TELEOP STATS
+    // ============================================================================
+
+    const defenseCount = teamMatches.filter(m => m.gameData?.teleop?.playedDefense === true).length;
+    const trenchCount = teamMatches.filter(m => m.gameData?.teleop?.underTrench === true).length;
 
     // ============================================================================
     // RAW VALUES (for box plots and distribution charts)
@@ -137,43 +144,56 @@ export const calculateTeamStats = (teamMatches: ScoutingEntry[]): Omit<TeamStats
         overall: {
             avgTotalPoints: round(totalPoints / matchCount),
             totalPiecesScored: round(totalPieces / matchCount),
-            avgGamePiece1: round(totalGamePiece1 / matchCount),  // Generic game piece type 1
-            avgGamePiece2: round(totalGamePiece2 / matchCount),  // Generic game piece type 2
+            avgGamePiece1: round(totalFuelScored / matchCount),  // Fuel scored
+            avgGamePiece2: round(totalFuelPassed / matchCount),  // Fuel passed
+            // 2026-specific
+            avgFuelScored: round(totalFuelScored / matchCount),
+            avgFuelPassed: round(totalFuelPassed / matchCount),
         },
 
         // Auto phase
         auto: {
             avgPoints: round(totalAutoPoints / matchCount),
-            avgGamePiece1: round(autoGamePiece1Total / matchCount),
-            avgGamePiece2: round(autoGamePiece2Total / matchCount),
+            avgGamePiece1: round(autoFuelTotal / matchCount),     // Auto fuel
+            avgGamePiece2: round(autoFuelPassedTotal / matchCount), // Auto passed
             mobilityRate: percent(mobilityCount, matchCount),
+            autoClimbRate: percent(autoClimbCount, matchCount),
+            avgFuelScored: round(autoFuelTotal / matchCount),
             startPositions,
         },
 
         // Teleop phase
         teleop: {
             avgPoints: round(totalTeleopPoints / matchCount),
-            avgGamePiece1: round(teleopGamePiece1Total / matchCount),
-            avgGamePiece2: round(teleopGamePiece2Total / matchCount),
+            avgGamePiece1: round(teleopFuelTotal / matchCount),     // Teleop fuel
+            avgGamePiece2: round(teleopFuelPassedTotal / matchCount), // Teleop passed
+            avgFuelScored: round(teleopFuelTotal / matchCount),
+            avgFuelPassed: round(teleopFuelPassedTotal / matchCount),
+            defenseRate: percent(defenseCount, matchCount),
         },
 
-        // Endgame phase - rates for all boolean options
+        // Endgame phase - tower climbing
         endgame: {
             avgPoints: round(totalEndgamePoints / matchCount),
-            // Option rates (percentage of matches where true)
-            option1Rate: percent(option1Count, matchCount),
-            option2Rate: percent(option2Count, matchCount),
-            option3Rate: percent(option3Count, matchCount),
-            option4Rate: percent(option4Count, matchCount),
-            option5Rate: percent(option5Count, matchCount),
-            // Toggle rates
-            toggle1Rate: percent(toggle1Count, matchCount),
-            toggle2Rate: percent(toggle2Count, matchCount),
-            // Legacy aliases for backward compatibility
-            climbRate: percent(option1Count, matchCount),
-            parkRate: percent(option2Count, matchCount),
-            shallowClimbRate: percent(option3Count, matchCount),
-            deepClimbRate: percent(option4Count, matchCount),
+            // Climb rates
+            climbL1Rate: percent(climbL1Count, matchCount),
+            climbL2Rate: percent(climbL2Count, matchCount),
+            climbL3Rate: percent(climbL3Count, matchCount),
+            climbSuccessRate: percent(climbSuccessCount, matchCount),
+            climbFailedRate: percent(climbFailedCount, matchCount),
+            noClimbRate: percent(noClimbCount, matchCount),
+            // Legacy compatibility aliases
+            climbRate: percent(climbSuccessCount, matchCount),
+            parkRate: 0, // Not applicable in 2026
+            shallowClimbRate: percent(climbL1Count, matchCount),
+            deepClimbRate: percent(climbL3Count, matchCount),
+            option1Rate: percent(climbL1Count, matchCount),
+            option2Rate: percent(climbL2Count, matchCount),
+            option3Rate: percent(climbL3Count, matchCount),
+            option4Rate: 0,
+            option5Rate: 0,
+            toggle1Rate: percent(climbFailedCount, matchCount),
+            toggle2Rate: percent(noClimbCount, matchCount),
         },
 
         // Raw values for charts
@@ -188,7 +208,7 @@ function calculateStartPositions(
     teamMatches: ScoutingEntry[],
     matchCount: number
 ): Array<{ position: string; percentage: number }> {
-    // Count occurrences of each start position (0-5)
+    // Count occurrences of each start position (0-2 for 2026)
     const positionCounts: Record<number, number> = {};
 
     teamMatches.forEach(m => {
@@ -200,11 +220,12 @@ function calculateStartPositions(
 
     // Convert to array with percentages
     const result: Array<{ position: string; percentage: number }> = [];
+    const posLabels = ['Left', 'Center', 'Right', 'Pos 3', 'Pos 4', 'Pos 5'];
     for (let i = 0; i <= 5; i++) {
         const count = positionCounts[i] || 0;
         const percentage = percent(count, matchCount);
         if (percentage > 0) {
-            result.push({ position: `Pos ${i}`, percentage });
+            result.push({ position: posLabels[i] || `Pos ${i}`, percentage });
         }
     }
 

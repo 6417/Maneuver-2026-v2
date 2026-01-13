@@ -1,50 +1,60 @@
 /**
- * Game Scoring Calculations
+ * Game Scoring Calculations - 2026 REBUILT
  * 
  * Calculates points for auto, teleop, and endgame phases.
  * 
+ * 2026 SCORING:
+ * - Fuel in active HUB: 1 pt (both phases)
+ * - Auto Climb L1: 15 pts
+ * - Tower L1: 10 pts, L2: 20 pts, L3: 30 pts
+ * 
  * DERIVED FROM: game-schema.ts
- * All point values come from the schema.
  */
 
 import type { ScoringCalculations } from "@/types/game-interfaces";
 import type { ScoutingEntryBase } from "@/core/types/scouting-entry";
-import { toggles, getActionKeys, getActionPoints, getEndgamePoints } from "./game-schema";
+import {
+    toggles,
+    getActionKeys,
+    getActionPoints,
+    getEndgamePoints,
+    getAutoTogglePoints,
+    type AutoToggleKey
+} from "./game-schema";
 
 /**
- * GameData interface derived from schema
- * Auto-includes all action counts and toggles defined in schema
+ * GameData interface for 2026
+ * Uses bulk counters for fuel tracking
  */
 export interface GameData {
     auto: {
         startPosition: number | null;
-        // Action counters (derived from schema)
-        action1Count?: number;
-        action2Count?: number;
-        action3Count?: number;
-        action4Count?: number;
-        // Auto toggles (derived from schema)
-        autoToggle?: boolean;
+        // Fuel counters (bulk counting)
+        fuelScoredCount?: number;
+        fuelPassedCount?: number;
+        // Auto toggles
+        leftStartZone?: boolean;
+        autoClimbL1?: boolean;
         [key: string]: unknown;
     };
     teleop: {
-        // Action counters (derived from schema)
-        action1Count?: number;
-        action2Count?: number;
-        action3Count?: number;
-        action4Count?: number;
-        teleopSpecialCount?: number;
-        // Teleop toggles (derived from schema)
-        teleopToggle?: boolean;
+        // Fuel counters (bulk counting)
+        fuelScoredCount?: number;
+        fuelPassedCount?: number;
+        // Teleop toggles
+        playedDefense?: boolean;
+        underTrench?: boolean;
+        overBump?: boolean;
         [key: string]: unknown;
     };
     endgame: {
-        // Endgame options (derived from schema)
-        option1?: boolean;
-        option2?: boolean;
-        option3?: boolean;
-        toggle1?: boolean;
-        toggle2?: boolean;
+        // Tower climb (mutually exclusive)
+        climbL1?: boolean;
+        climbL2?: boolean;
+        climbL3?: boolean;
+        // Status
+        climbFailed?: boolean;
+        noClimb?: boolean;
         [key: string]: unknown;
     };
     [key: string]: unknown;
@@ -59,12 +69,21 @@ export const scoringCalculations: ScoringCalculations<ScoutingEntry> = {
         const gameData = entry.gameData as GameData;
         let points = 0;
 
-        // Sum points for all actions with auto points
+        // Sum points for fuel scored in auto
         getActionKeys().forEach(key => {
             const autoPoints = getActionPoints(key, 'auto');
             if (autoPoints > 0) {
                 const count = gameData?.auto?.[`${key}Count`] as number || 0;
                 points += count * autoPoints;
+            }
+        });
+
+        // Add auto climb points if applicable
+        Object.keys(toggles.auto).forEach(key => {
+            const toggleKey = key as AutoToggleKey;
+            const togglePoints = getAutoTogglePoints(toggleKey);
+            if (togglePoints > 0 && gameData?.auto?.[key] === true) {
+                points += togglePoints;
             }
         });
 
@@ -75,7 +94,7 @@ export const scoringCalculations: ScoringCalculations<ScoutingEntry> = {
         const gameData = entry.gameData as GameData;
         let points = 0;
 
-        // Sum points for all actions with teleop points
+        // Sum points for fuel scored in teleop
         getActionKeys().forEach(key => {
             const teleopPoints = getActionPoints(key, 'teleop');
             if (teleopPoints > 0) {
@@ -91,7 +110,8 @@ export const scoringCalculations: ScoringCalculations<ScoutingEntry> = {
         const gameData = entry.gameData as GameData;
         let points = 0;
 
-        // Sum points for all endgame toggles that are true
+        // Tower climb - only count the highest level achieved
+        // (toggles are mutually exclusive in "climb" group)
         Object.keys(toggles.endgame).forEach(key => {
             const toggleKey = key as keyof typeof toggles.endgame;
             const togglePoints = getEndgamePoints(toggleKey);
