@@ -13,37 +13,67 @@ import { Checkbox } from '@/core/components/ui/checkbox';
 import { Maximize2 } from 'lucide-react';
 import { cn } from '@/core/lib/utils';
 import type { MatchResult } from '@/game-template/analysis';
-import { FieldCanvas, type FieldCanvasRef, FieldHeader } from '@/game-template/components/field-map';
+import { FieldCanvas, type FieldCanvasRef, FieldHeader, type PathWaypoint } from '@/game-template/components/field-map';
 import fieldImage from '@/game-template/assets/2026-field.png';
+
+export interface AutoPathListItem {
+    id: string;
+    label: string;
+    actions: PathWaypoint[];
+    alliance?: 'red' | 'blue';
+    metricText?: string;
+    detailText?: string;
+}
 
 interface AutoPathsByPositionProps {
     matchResults: MatchResult[];
     alliance?: 'red' | 'blue';
+    customItemsByPosition?: Record<number, AutoPathListItem[]>;
+    listTitle?: string;
 }
 
 const START_POSITION_LABELS = ['Left Trench', 'Left Bump', 'Hub', 'Right Bump', 'Right Trench'];
 const START_POSITION_COLORS = ['yellow', 'orange', 'green', 'orange', 'yellow'];
+const POSITION_KEYS = [0, 1, 2, 3, 4] as const;
+type PositionIndex = (typeof POSITION_KEYS)[number];
 
-export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPathsByPositionProps) {
-    const [selectedPosition, setSelectedPosition] = useState<number>(2); // Default to Hub
+export function AutoPathsByPosition({
+    matchResults,
+    alliance = 'blue',
+    customItemsByPosition,
+    listTitle = 'Matches',
+}: AutoPathsByPositionProps) {
+    const [selectedPosition, setSelectedPosition] = useState<PositionIndex>(2); // Default to Hub
     const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const isCustomMode = !!customItemsByPosition;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const fieldCanvasRef = useRef<FieldCanvasRef>(null);
 
     // Group matches by start position
     const matchesByPosition = useMemo(() => {
-        const grouped: Record<number, MatchResult[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+        if (customItemsByPosition) {
+            return {
+                0: customItemsByPosition[0] ?? [],
+                1: customItemsByPosition[1] ?? [],
+                2: customItemsByPosition[2] ?? [],
+                3: customItemsByPosition[3] ?? [],
+                4: customItemsByPosition[4] ?? [],
+            };
+        }
+
+        const grouped: Record<PositionIndex, MatchResult[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
         matchResults.forEach(match => {
             const pos = match.startPosition;
             // Include all matches with valid start position, even if no path data
-            if (pos >= 0 && pos <= 4 && grouped[pos]) {
-                grouped[pos].push(match);
+            if (pos >= 0 && pos <= 4) {
+                grouped[pos as PositionIndex].push(match);
             }
         });
         return grouped;
-    }, [matchResults]);
+    }, [matchResults, customItemsByPosition]);
 
     // Get matches for selected position
     const positionMatches = useMemo(() => 
@@ -53,10 +83,16 @@ export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPat
 
     // Get actions to display from selected matches
     const displayActions = useMemo(() => {
-        return positionMatches
+        if (isCustomMode) {
+            return (positionMatches as AutoPathListItem[])
+                .filter(item => selectedMatches.has(item.id))
+                .flatMap(item => item.actions || []);
+        }
+
+        return (positionMatches as MatchResult[])
             .filter(m => selectedMatches.has(m.matchNumber))
             .flatMap(m => m.autoPath || []);
-    }, [positionMatches, selectedMatches]);
+    }, [positionMatches, selectedMatches, isCustomMode]);
 
     // Canvas dimensions - dynamically update based on container size
     const [canvasDimensions, setCanvasDimensions] = useState({ width: 640, height: 320 });
@@ -89,7 +125,12 @@ export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPat
 
     // Select all matches for current position
     const selectAll = () => {
-        setSelectedMatches(new Set(positionMatches.map(m => m.matchNumber)));
+        if (isCustomMode) {
+            setSelectedMatches(new Set((positionMatches as AutoPathListItem[]).map(item => item.id)));
+            return;
+        }
+
+        setSelectedMatches(new Set((positionMatches as MatchResult[]).map(m => m.matchNumber)));
     };
 
     // Clear all selections
@@ -101,7 +142,7 @@ export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPat
         <div className="space-y-4">
             {/* Position Selector */}
             <div className="flex flex-wrap gap-2">
-                {[0, 1, 2, 3, 4].map(pos => {
+                {POSITION_KEYS.map(pos => {
                     const count = matchesByPosition[pos]?.length || 0;
                     const color = START_POSITION_COLORS[pos];
                     return (
@@ -197,8 +238,8 @@ export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPat
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <p className="text-muted-foreground text-sm">
                                     {positionMatches.length === 0
-                                        ? 'No matches from this position'
-                                        : 'Select matches to view paths'}
+                                        ? (isCustomMode ? 'No autos from this position' : 'No matches from this position')
+                                        : (isCustomMode ? 'Select autos to view paths' : 'Select matches to view paths')}
                                 </p>
                             </div>
                         )}
@@ -284,53 +325,77 @@ export function AutoPathsByPosition({ matchResults, alliance = 'blue' }: AutoPat
 
                 {/* Match List */}
                 <Card className="p-4 max-h-125 overflow-y-auto">
-                    <h3 className="font-semibold mb-3">Matches ({positionMatches.length})</h3>
+                    <h3 className="font-semibold mb-3">{listTitle} ({positionMatches.length})</h3>
                     {positionMatches.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                            No matches from {START_POSITION_LABELS[selectedPosition]}
+                            {isCustomMode ? 'No autos' : 'No matches'} from {START_POSITION_LABELS[selectedPosition]}
                         </p>
                     ) : (
                         <div className="space-y-2">
-                            {positionMatches.map(match => {
-                                const isSelected = selectedMatches.has(match.matchNumber);
+                            {(isCustomMode ? (positionMatches as AutoPathListItem[]) : (positionMatches as MatchResult[])).map((item) => {
+                                const id = isCustomMode ? (item as AutoPathListItem).id : (item as MatchResult).matchNumber;
+                                const isSelected = selectedMatches.has(id);
                                 return (
                                     <div
-                                        key={match.matchNumber}
+                                        key={id}
                                         className={cn(
                                             'p-3 rounded-lg border cursor-pointer transition-colors',
                                             isSelected
                                                 ? 'border-primary bg-primary/10'
                                                 : 'border-border hover:border-primary/50'
                                         )}
-                                        onClick={() => toggleMatch(match.matchNumber)}
+                                        onClick={() => toggleMatch(id)}
                                     >
                                         <div className="flex items-center justify-between mb-1">
                                             <div className="flex items-center gap-2">
                                                 <Checkbox
                                                     checked={isSelected}
-                                                    onCheckedChange={() => toggleMatch(match.matchNumber)}
+                                                    onCheckedChange={() => toggleMatch(id)}
                                                     onClick={(e) => e.stopPropagation()}
                                                 />
-                                                <span className="font-medium">Match {match.matchNumber}</span>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={cn(
-                                                        'text-xs',
-                                                        match.alliance === 'red' ? 'border-red-500 text-red-400' : 'border-blue-500 text-blue-400'
-                                                    )}
-                                                >
-                                                    {match.alliance}
-                                                </Badge>
+                                                <span className="font-medium">
+                                                    {isCustomMode ? (item as AutoPathListItem).label : `Match ${(item as MatchResult).matchNumber}`}
+                                                </span>
+                                                {isCustomMode ? (
+                                                    (item as AutoPathListItem).alliance && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'text-xs',
+                                                                (item as AutoPathListItem).alliance === 'red'
+                                                                    ? 'border-red-500 text-red-400'
+                                                                    : 'border-blue-500 text-blue-400'
+                                                            )}
+                                                        >
+                                                            {(item as AutoPathListItem).alliance}
+                                                        </Badge>
+                                                    )
+                                                ) : (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={cn(
+                                                            'text-xs',
+                                                            (item as MatchResult).alliance === 'red' ? 'border-red-500 text-red-400' : 'border-blue-500 text-blue-400'
+                                                        )}
+                                                    >
+                                                        {(item as MatchResult).alliance}
+                                                    </Badge>
+                                                )}
                                             </div>
                                             <Badge variant="secondary" className="text-xs">
-                                                {match.autoPoints} pts
+                                                {isCustomMode
+                                                    ? ((item as AutoPathListItem).metricText ?? `${(item as AutoPathListItem).actions.length} actions`)
+                                                    : `${(item as MatchResult).autoPoints} pts`}
                                             </Badge>
                                         </div>
                                         <div className="text-xs text-muted-foreground ml-6">
-                                            {match.autoFuel} fuel scored
-                                            {match.autoPath && match.autoPath.length > 0 
-                                                ? ` • ${match.autoPath.length} actions` 
-                                                : ' • No path data'}
+                                            {isCustomMode
+                                                ? ((item as AutoPathListItem).detailText ?? `${(item as AutoPathListItem).actions.length} actions`)
+                                                : `${(item as MatchResult).autoFuel} fuel scored${
+                                                    (item as MatchResult).autoPath && (item as MatchResult).autoPath!.length > 0
+                                                        ? ` • ${(item as MatchResult).autoPath!.length} actions`
+                                                        : ' • No path data'
+                                                }`}
                                         </div>
                                     </div>
                                 );

@@ -14,6 +14,17 @@ import { Button } from "@/core/components/ui/button";
 import { Label } from "@/core/components/ui/label";
 import { Input } from "@/core/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/core/components/ui/dialog";
+import { AutoFieldMap } from "@/game-template/components/auto-path/AutoFieldMap";
+import type { PathWaypoint } from "@/game-template/components/field-map";
+import { Eraser, Save, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
 
 interface GameSpecificQuestionsProps {
   gameData?: Record<string, unknown>;
@@ -23,9 +34,135 @@ interface GameSpecificQuestionsProps {
 const START_POSITIONS = ['Left Trench', 'Left Bump', 'Hub', 'Right Bump', 'Right Trench'];
 const ROLES = ['Cycler', 'Clean Up', 'Passer', 'Thief', 'Defense'];
 
+type PitAutoStartPosition = typeof START_POSITIONS[number];
+
+interface PitReportedAuto {
+  id: string;
+  name: string;
+  actions: PathWaypoint[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+type PitReportedAutosByStart = Record<PitAutoStartPosition, PitReportedAuto[]>;
+
+const PIT_START_TO_FIELD_KEY: Record<PitAutoStartPosition, 'trench1' | 'bump1' | 'hub' | 'bump2' | 'trench2'> = {
+  'Left Trench': 'trench1',
+  'Left Bump': 'bump1',
+  'Hub': 'hub',
+  'Right Bump': 'bump2',
+  'Right Trench': 'trench2',
+};
+
+function createEmptyReportedAutos(): PitReportedAutosByStart {
+  return {
+    'Left Trench': [],
+    'Left Bump': [],
+    'Hub': [],
+    'Right Bump': [],
+    'Right Trench': [],
+  };
+}
+
+function coerceReportedAutos(value: unknown): PitReportedAutosByStart {
+  const empty = createEmptyReportedAutos();
+  if (!value || typeof value !== 'object') return empty;
+
+  const input = value as Record<string, unknown>;
+  for (const start of START_POSITIONS) {
+    const rawAutos = input[start];
+    if (!Array.isArray(rawAutos)) continue;
+
+    empty[start] = rawAutos
+      .filter((auto): auto is Record<string, unknown> => !!auto && typeof auto === 'object')
+      .map((auto, index) => ({
+        id: typeof auto.id === 'string' ? auto.id : `${start}-${index}-${Date.now()}`,
+        name: typeof auto.name === 'string' && auto.name.trim() ? auto.name.trim() : `${start} Auto ${index + 1}`,
+        actions: Array.isArray(auto.actions) ? (auto.actions as PathWaypoint[]) : [],
+        createdAt: typeof auto.createdAt === 'number' ? auto.createdAt : Date.now(),
+        updatedAt: typeof auto.updatedAt === 'number' ? auto.updatedAt : Date.now(),
+      }));
+  }
+
+  return empty;
+}
+
 export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameSpecificQuestionsProps) {
+  const [recordingStart, setRecordingStart] = useState<PitAutoStartPosition | null>(null);
+  const [recordingActions, setRecordingActions] = useState<PathWaypoint[]>([]);
+  const [recordingName, setRecordingName] = useState('');
+
   const handleChange = (key: string, value: unknown) => {
     onGameDataChange({ ...gameData, [key]: value });
+  };
+
+  const reportedAutosByStart = useMemo(
+    () => coerceReportedAutos(gameData.reportedAutosByStart),
+    [gameData.reportedAutosByStart]
+  );
+
+  const persistReportedAutos = (next: PitReportedAutosByStart) => {
+    handleChange('reportedAutosByStart', next);
+  };
+
+  const openRecorder = (start: PitAutoStartPosition) => {
+    const nextIndex = (reportedAutosByStart[start]?.length || 0) + 1;
+    setRecordingStart(start);
+    setRecordingActions([]);
+    setRecordingName(`${start} Auto ${nextIndex}`);
+  };
+
+  const closeRecorder = () => {
+    setRecordingStart(null);
+    setRecordingActions([]);
+    setRecordingName('');
+  };
+
+  const saveRecordedAuto = () => {
+    if (!recordingStart || recordingActions.length === 0) return;
+
+    const currentAutos = reportedAutosByStart[recordingStart] ?? [];
+
+    const now = Date.now();
+    const newAuto: PitReportedAuto = {
+      id: `pit-auto-${recordingStart}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      name: recordingName.trim() || `${recordingStart} Auto ${currentAutos.length + 1}`,
+      actions: recordingActions,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    persistReportedAutos({
+      ...reportedAutosByStart,
+      [recordingStart]: [...currentAutos, newAuto],
+    });
+
+    closeRecorder();
+  };
+
+  const renameReportedAuto = (start: PitAutoStartPosition, autoId: string, name: string) => {
+    const currentAutos = reportedAutosByStart[start] ?? [];
+    const next = {
+      ...reportedAutosByStart,
+      [start]: currentAutos.map((auto) =>
+        auto.id === autoId
+          ? {
+              ...auto,
+              name,
+              updatedAt: Date.now(),
+            }
+          : auto
+      ),
+    };
+    persistReportedAutos(next);
+  };
+
+  const deleteReportedAuto = (start: PitAutoStartPosition, autoId: string) => {
+    const currentAutos = reportedAutosByStart[start] ?? [];
+    persistReportedAutos({
+      ...reportedAutosByStart,
+      [start]: currentAutos.filter((auto) => auto.id !== autoId),
+    });
   };
 
   const handleMultiSelectChange = (key: string, value: string, checked: boolean) => {
@@ -260,6 +397,131 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
           </div>
         </CardContent>
       </Card>
+
+      {/* Reported Autos by Start Position */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Reported Autos by Starting Location</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {START_POSITIONS.map((start) => {
+            const autos = reportedAutosByStart[start] || [];
+            return (
+              <div key={start} className="rounded-md border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{start}</p>
+                    <p className="text-xs text-muted-foreground">{autos.length} saved auto{autos.length === 1 ? '' : 's'}</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => openRecorder(start)}>
+                    Add Auto
+                  </Button>
+                </div>
+
+                {autos.length > 0 ? (
+                  <div className="space-y-2">
+                    {autos.map((auto) => (
+                      <div key={auto.id} className="flex items-center gap-2 rounded-md border p-2">
+                        <Input
+                          value={auto.name}
+                          onChange={(e) => renameReportedAuto(start, auto.id, e.target.value)}
+                          placeholder="Auto name"
+                        />
+                        <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          {auto.actions.length} actions
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteReportedAuto(start, auto.id)}
+                          aria-label={`Delete ${auto.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No autos recorded yet for this location.</p>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Dialog open={recordingStart !== null} onOpenChange={(open) => { if (!open) closeRecorder(); }}>
+        <DialogContent className="w-screen h-screen max-w-none max-h-none rounded-none border-0 p-4 sm:p-6 flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Record Reported Auto</DialogTitle>
+            <DialogDescription>
+              Use the field map to capture one reported auto path for {recordingStart}. Then save it with a name.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className="w-full">
+              <AutoFieldMap
+                actions={recordingActions}
+                onAddAction={(action) => setRecordingActions((prev) => [...prev, action])}
+                onUndo={() => setRecordingActions((prev) => prev.slice(0, -1))}
+                canUndo={recordingActions.length > 0}
+                teamNumber="pit"
+                matchNumber="pit"
+                enableNoShow={false}
+                recordingMode={true}
+                preferredStartKey={recordingStart ? PIT_START_TO_FIELD_KEY[recordingStart] : undefined}
+                headerInputSlot={
+                  <Input
+                    id="pit-reported-auto-name"
+                    value={recordingName}
+                    onChange={(e) => setRecordingName(e.target.value)}
+                    placeholder={recordingStart ? `${recordingStart} Auto` : 'Reported Auto'}
+                    className="h-8 w-48 sm:w-72"
+                    aria-label="Auto name"
+                  />
+                }
+                recordingActionSlot={
+                  <div className="flex items-center gap-1">
+                    <Button
+                      className="h-8 w-8 md:w-auto md:px-2"
+                      type="button"
+                      variant="outline"
+                      onClick={closeRecorder}
+                      aria-label="Cancel"
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="hidden md:inline md:ml-1">Cancel</span>
+                    </Button>
+                    <Button
+                      className="h-8 w-8 md:w-auto md:px-2"
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setRecordingActions([])}
+                      disabled={recordingActions.length === 0}
+                      aria-label="Clear Path"
+                    >
+                      <Eraser className="h-4 w-4" />
+                      <span className="hidden md:inline md:ml-1">Clear Path</span>
+                    </Button>
+                    <Button
+                      className="h-8 w-8 md:w-auto md:px-2"
+                      type="button"
+                      onClick={saveRecordedAuto}
+                      disabled={recordingActions.length === 0}
+                      aria-label="Save Reported Auto"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span className="hidden md:inline md:ml-1">Save</span>
+                    </Button>
+                  </div>
+                }
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

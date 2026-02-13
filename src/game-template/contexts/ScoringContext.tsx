@@ -53,6 +53,7 @@ export interface ScoringContextValue {
     // Navigation
     onBack?: () => void;
     onProceed?: (finalActions?: PathWaypoint[]) => void;
+    enableNoShow?: boolean;
 
     // Helpers
     generateId: () => string;
@@ -80,6 +81,7 @@ export interface ScoringProviderProps {
     teamNumber?: string | number;
     onBack?: () => void;
     onProceed?: (finalActions?: PathWaypoint[]) => void;
+    enableNoShow?: boolean;
 }
 
 // =============================================================================
@@ -112,6 +114,7 @@ export function ScoringProvider({
     teamNumber,
     onBack,
     onProceed,
+    enableNoShow,
 }: ScoringProviderProps) {
     // Pending waypoint state
     const [pendingWaypoint, setPendingWaypoint] = useState<PathWaypoint | null>(null);
@@ -261,6 +264,7 @@ export function ScoringProvider({
         // Navigation
         onBack,
         onProceed,
+        enableNoShow,
 
         // Helpers
         generateId,

@@ -22,6 +22,7 @@ import { cn } from "@/core/lib/utils";
 import { loadPitScoutingByTeamAndEvent } from "@/core/db/database";
 import { submitMatchData } from "@/core/lib/submitMatch";
 import { useGame } from "@/core/contexts/GameContext";
+import { toast } from "sonner";
 import fieldImage from "@/game-template/assets/2026-field.png";
 import {
     FIELD_ELEMENTS,
@@ -60,6 +61,14 @@ import { PostClimbProceed } from "@/game-template/components";
 // Re-export types for backward compatibility with existing consumers
 export type { PathActionType, ZoneType, PathWaypoint };
 
+const START_KEY_LABELS: Record<'trench1' | 'bump1' | 'hub' | 'bump2' | 'trench2', string> = {
+    trench1: 'Left Trench',
+    bump1: 'Left Bump',
+    hub: 'Hub',
+    bump2: 'Right Bump',
+    trench2: 'Right Trench',
+};
+
 
 
 export interface AutoFieldMapProps {
@@ -73,6 +82,12 @@ export interface AutoFieldMapProps {
     teamNumber?: string | number;
     onBack?: () => void;
     onProceed?: (finalActions?: PathWaypoint[]) => void;
+    enableNoShow?: boolean;
+    recordingMode?: boolean;
+    preferredStartKey?: 'trench1' | 'bump1' | 'hub' | 'bump2' | 'trench2';
+    headerLabel?: string;
+    headerInputSlot?: React.ReactNode;
+    recordingActionSlot?: React.ReactNode;
 }
 
 // =============================================================================
@@ -95,8 +110,15 @@ export function AutoFieldMap(props: AutoFieldMapProps) {
             teamNumber={props.teamNumber}
             onBack={props.onBack}
             onProceed={props.onProceed}
+            enableNoShow={props.enableNoShow}
         >
-            <AutoFieldMapContent />
+            <AutoFieldMapContent
+                recordingMode={props.recordingMode}
+                preferredStartKey={props.preferredStartKey}
+                headerLabel={props.headerLabel}
+                headerInputSlot={props.headerInputSlot}
+                recordingActionSlot={props.recordingActionSlot}
+            />
         </AutoPathProvider>
     );
 }
@@ -105,7 +127,19 @@ export function AutoFieldMap(props: AutoFieldMapProps) {
 // CONTENT COMPONENT - Uses Context
 // =============================================================================
 
-function AutoFieldMapContent() {
+function AutoFieldMapContent({
+    recordingMode = false,
+    preferredStartKey,
+    headerLabel,
+    headerInputSlot,
+    recordingActionSlot,
+}: {
+    recordingMode?: boolean;
+    preferredStartKey?: 'trench1' | 'bump1' | 'hub' | 'bump2' | 'trench2';
+    headerLabel?: string;
+    headerInputSlot?: React.ReactNode;
+    recordingActionSlot?: React.ReactNode;
+}) {
     // Get all state from context
     const {
         // From ScoringContext
@@ -130,6 +164,7 @@ function AutoFieldMapContent() {
         teamNumber,
         onBack,
         onProceed,
+        enableNoShow,
         generateId,
         // From AutoPathContext
         selectedStartKey,
@@ -155,6 +190,7 @@ function AutoFieldMapContent() {
     const { transformation } = useGame();
 
     const fieldCanvasRef = useRef<FieldCanvasRef>(null);
+    const startSeedInFlightRef = useRef(false);
     const canvasRef = useMemo(() => ({
         get current() { return fieldCanvasRef.current?.canvas ?? null; }
     }), []) as React.RefObject<HTMLCanvasElement>;
@@ -216,10 +252,14 @@ function AutoFieldMapContent() {
 
     // Auto-fullscreen on mobile on mount
     useEffect(() => {
-        if (isMobile) {
+        if (isMobile && !recordingMode) {
             setIsFullscreen(true);
+            return;
         }
-    }, [isMobile]);
+        if (recordingMode) {
+            setIsFullscreen(false);
+        }
+    }, [isMobile, recordingMode]);
 
     // Recalculate current zone whenever actions change (handles undo properly)
     useEffect(() => {
@@ -232,7 +272,6 @@ function AutoFieldMapContent() {
         });
         setCurrentZone(zone);
     }, [actions]);
-
 
     // Calculate total score from actions (not just fuel count)
     const totalScore = actions.reduce((sum, action) => {
@@ -299,6 +338,30 @@ function AutoFieldMapContent() {
         };
         onAddAction(waypoint);
     }, [onAddAction, generateId]);
+
+    // Seed start position in recording mode based on requested pit start location
+    useEffect(() => {
+        if (!recordingMode || !preferredStartKey) return;
+
+        if (actions.length > 0) {
+            startSeedInFlightRef.current = false;
+            return;
+        }
+
+        if (startSeedInFlightRef.current) {
+            return;
+        }
+
+        if (actions.length === 0) {
+            const startElement = FIELD_ELEMENTS[preferredStartKey];
+            if (!startElement) return;
+
+            startSeedInFlightRef.current = true;
+            addWaypoint('start', preferredStartKey, { x: startElement.x, y: startElement.y });
+            setSelectedStartKey(null);
+            toast.info(`Starting position set to ${START_KEY_LABELS[preferredStartKey]}. Choose the next auto action.`);
+        }
+    }, [recordingMode, preferredStartKey, actions.length, addWaypoint, setSelectedStartKey]);
 
     const handleBrokenDownToggle = () => {
         if (brokenDownStart) {
@@ -512,24 +575,28 @@ function AutoFieldMapContent() {
             {/* Header */}
             <FieldHeader
                 phase="auto"
-                stats={[
+                headerLabel={headerLabel}
+                headerInputSlot={headerInputSlot}
+                stats={recordingMode ? [] : [
                     { label: 'Scored', value: totalFuelScored, color: 'green' },
                     { label: 'Passed', value: totalFuelPassed, color: 'purple' },
                 ]}
-                currentZone={currentZone}
+                hideStats={recordingMode}
+                customActionSlot={recordingMode ? recordingActionSlot : undefined}
+                currentZone={recordingMode ? null : currentZone}
                 isFullscreen={isFullscreen}
                 onFullscreenToggle={() => setIsFullscreen(!isFullscreen)}
-                actionLogSlot={<AutoActionLog actions={actions} totalScore={totalScore} open={actionLogOpen} onOpenChange={setActionLogOpen} />}
-                onActionLogOpen={() => setActionLogOpen(true)}
-                matchNumber={matchNumber}
+                actionLogSlot={recordingMode ? undefined : <AutoActionLog actions={actions} totalScore={totalScore} open={actionLogOpen} onOpenChange={setActionLogOpen} />}
+                onActionLogOpen={recordingMode ? undefined : () => setActionLogOpen(true)}
+                matchNumber={recordingMode ? undefined : matchNumber}
                 matchType={matchType}
-                teamNumber={teamNumber}
+                teamNumber={recordingMode ? undefined : teamNumber}
                 alliance={alliance}
                 isFieldRotated={isFieldRotated}
                 canUndo={canUndo}
                 onUndo={handleUndo}
                 onBack={onBack}
-                onProceed={() => {
+                onProceed={recordingMode ? undefined : () => {
                     // Capture any active stuck timers before proceeding
                     const stuckEntries = Object.entries(stuckStarts);
                     const finalActions = [...actions];
@@ -573,8 +640,10 @@ function AutoFieldMapContent() {
                 }}
                 toggleFieldOrientation={toggleFieldOrientation}
                 isBrokenDown={isBrokenDown}
-                onBrokenDownToggle={handleBrokenDownToggle}
-                onNoShow={handleNoShow}
+                onBrokenDownToggle={recordingMode ? undefined : handleBrokenDownToggle}
+                onNoShow={enableNoShow !== false ? handleNoShow : undefined}
+                hideOverflowMenu={recordingMode}
+                prominentFullscreenControl={recordingMode}
             />
 
             {/* Field with Overlay Buttons */}
@@ -582,7 +651,7 @@ function AutoFieldMapContent() {
                 ref={containerRef}
                 className={cn(
                     "relative rounded-lg overflow-hidden border border-slate-700 bg-slate-900 select-none",
-                    "w-full aspect-[2/1]",
+                    "w-full aspect-2/1",
                     isFullscreen ? "max-h-[85vh] m-auto" : "h-auto",
                     isFieldRotated && "rotate-180" // 180° rotation for field orientation preference
                 )}
@@ -815,7 +884,7 @@ function AutoFieldMapContent() {
 
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-[100] bg-background p-4 flex flex-col">
+            <div className="fixed inset-0 z-100 bg-background p-4 flex flex-col">
                 {content}
             </div>
         );

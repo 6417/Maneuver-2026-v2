@@ -323,3 +323,9 @@ export default gameDataTransformation;
  * These are large visualization/replay arrays not useful for spreadsheet analysis.
  */
 export const csvExcludedFields: string[] = ['auto.autoPath', 'teleop.teleopPath'];
+
+/**
+ * Game-specific pit scouting gameData fields to exclude from CSV export.
+ * These are large visualization/replay arrays not useful for spreadsheet analysis.
+ */
+export const pitCsvExcludedFields: string[] = ['reportedAutosByStart'];

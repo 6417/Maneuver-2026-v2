@@ -44,8 +44,13 @@ export interface FieldHeaderStat {
 export interface FieldHeaderProps {
     phase: 'auto' | 'teleop';
 
+    // Optional custom context label (e.g., auto name in recording mode)
+    headerLabel?: string;
+    headerInputSlot?: React.ReactNode;
+
     // Stats to display (phase-specific)
     stats: FieldHeaderStat[];
+    hideStats?: boolean;
 
     // Current zone for badge display
     currentZone?: ZoneType | null;
@@ -56,6 +61,7 @@ export interface FieldHeaderProps {
 
     // Optional action log slot (phase-specific component)
     actionLogSlot?: React.ReactNode;
+    customActionSlot?: React.ReactNode;
     
     // Optional action log trigger (for kebab menu)
     onActionLogOpen?: () => void;
@@ -78,6 +84,10 @@ export interface FieldHeaderProps {
     
     // No show handling (auto only)
     onNoShow?: () => void;
+
+    // Optional UI behavior flags
+    hideOverflowMenu?: boolean;
+    prominentFullscreenControl?: boolean;
 }
 
 // =============================================================================
@@ -126,7 +136,10 @@ function getStatColorClass(color: FieldHeaderStat['color']): string {
 
 export function FieldHeader({
     phase,
+    headerLabel,
+    headerInputSlot,
     stats,
+    hideStats = false,
     currentZone,
     onActionLogOpen,
     isFullscreen,
@@ -145,6 +158,9 @@ export function FieldHeader({
     isBrokenDown = false,
     onBrokenDownToggle,
     onNoShow,
+    hideOverflowMenu = false,
+    prominentFullscreenControl = false,
+    customActionSlot,
 }: FieldHeaderProps) {
     const phaseLabel = phase === 'auto' ? 'Autonomous' : 'Teleop';
     const proceedLabel = phase === 'auto' ? 'Teleop' : 'Post Match';
@@ -155,7 +171,7 @@ export function FieldHeader({
         <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2 flex-1 min-w-0">
                 {/* Back button + Phase Label (fullscreen only) */}
-                {isFullscreen && (
+                {isFullscreen && !headerInputSlot && (
                     <div className="flex items-center gap-1.5 shrink-0">
                         {onBack && (
                             <Button
@@ -173,6 +189,10 @@ export function FieldHeader({
                     </div>
                 )}
 
+                {headerInputSlot && (
+                    <div className="shrink-0">{headerInputSlot}</div>
+                )}
+
                 {/* Match Info */}
                 {(matchNumber || teamNumber) && (
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/50 rounded-md border border-slate-700/50 shrink-0">
@@ -181,12 +201,19 @@ export function FieldHeader({
                                 {formatMatchLabel(matchNumber, matchType)}
                             </span>
                         )}
-                        {matchNumber && teamNumber && <div className="w-[1px] h-3 bg-slate-800/50" />}
+                        {matchNumber && teamNumber && <div className="w-px h-3 bg-slate-800/50" />}
                         {teamNumber && (
                             <span className="text-[10px] md:text-xs font-bold text-slate-400">
                                 {teamNumber}
                             </span>
                         )}
+                    </div>
+                )}
+
+                {/* Custom Header Label */}
+                {headerLabel && (
+                    <div className="max-w-48 md:max-w-72 truncate px-2 py-1 bg-slate-800/50 rounded-md border border-slate-700/50 text-[10px] md:text-xs font-semibold text-slate-300 shrink-0">
+                        {headerLabel}
                     </div>
                 )}
 
@@ -201,24 +228,28 @@ export function FieldHeader({
                 )}
 
                 {/* Stat Badges */}
-                <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-                    {stats.map((stat, i) => (
-                        <Badge
-                            key={i}
-                            variant="secondary"
-                            className={cn(
-                                "text-[10px] md:text-xs px-1.5 py-0",
-                                getStatColorClass(stat.color)
-                            )}
-                        >
-                            {stat.label}: {stat.value}
-                        </Badge>
-                    ))}
-                </div>
+                {!hideStats && stats.length > 0 && (
+                    <div className="flex items-center gap-1 sm:gap-2 ml-auto">
+                        {stats.map((stat, i) => (
+                            <Badge
+                                key={i}
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] md:text-xs px-1.5 py-0",
+                                    getStatColorClass(stat.color)
+                                )}
+                            >
+                                {stat.label}: {stat.value}
+                            </Badge>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Action Buttons */}
             <div className="flex items-center gap-1 pl-4">
+                {customActionSlot}
+
                 {/* Broken Down Button - Always visible */}
                 {onBrokenDownToggle && (
                     <Button
@@ -250,7 +281,7 @@ export function FieldHeader({
                 )}
 
                 {/* Kebab Menu (mobile and tablet, until lg) */}
-                <div className="lg:hidden">
+                {!hideOverflowMenu && <div className="lg:hidden">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
@@ -261,7 +292,7 @@ export function FieldHeader({
                                 <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 z-[150]">
+                        <DropdownMenuContent align="end" className="w-48 z-150">
                             {/* Action Log */}
                             {onActionLogOpen && (
                                 <>
@@ -314,7 +345,19 @@ export function FieldHeader({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
+                </div>}
+
+                {/* Prominent Fullscreen Control */}
+                {prominentFullscreenControl && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onFullscreenToggle}
+                        className="h-8 px-3 text-[11px] font-bold"
+                    >
+                        {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                    </Button>
+                )}
 
                 {/* Desktop Action Buttons (lg and up) */}
                 <div className="hidden lg:flex lg:items-center lg:gap-1">
@@ -362,14 +405,16 @@ export function FieldHeader({
                     )}
 
                     {/* Fullscreen Toggle */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onFullscreenToggle}
-                        className="h-8 w-8 hover:bg-slate-800"
-                    >
-                        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    </Button>
+                    {!prominentFullscreenControl && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onFullscreenToggle}
+                            className="h-8 w-8 hover:bg-slate-800"
+                        >
+                            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Proceed (fullscreen only) - Always visible when applicable */}
@@ -389,7 +434,7 @@ export function FieldHeader({
 
             {/* No Show Confirmation Dialog */}
             <Dialog open={showNoShowDialog} onOpenChange={setShowNoShowDialog}>
-                <DialogContent className="z-[150]">
+                <DialogContent className="z-150">
                     <DialogHeader>
                         <DialogTitle>Confirm No Show</DialogTitle>
                         <DialogDescription>
