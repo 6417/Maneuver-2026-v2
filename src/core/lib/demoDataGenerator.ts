@@ -15,7 +15,7 @@ import { db, saveScoutingEntry, savePitScoutingEntry } from '@/core/db/database'
 import type { ScoutingEntryBase } from '@/core/types/scouting-entry';
 import type { PitScoutingEntryBase, DrivetrainType, ProgrammingLanguage } from '@/core/types/pit-scouting';
 import { setCurrentEvent } from '@/core/lib/tba/eventDataUtils';
-import { cacheTBAMatches } from '@/core/lib/tbaCache';
+import { cacheTBAMatches, clearEventCache } from '@/core/lib/tbaCache';
 import { getOrCreateScoutByName, updateScoutStats } from '@/core/lib/scoutGamificationUtils';
 import { gamificationDB, createMatchPrediction } from '@/game/gamification';
 
@@ -270,6 +270,101 @@ export interface DemoDataResult {
         playoffMatches: number;
         entriesGenerated: number;
     };
+}
+
+async function cacheAndStoreDemoSchedule(eventKey: string, matches: MatchSchedule[]): Promise<void> {
+    const tbaMatches = matches.map((match, index) => ({
+        key: match.matchKey,
+        comp_level: match.compLevel,
+        set_number: 1,
+        match_number: match.matchNumber,
+        alliances: {
+            red: {
+                score: -1,
+                team_keys: match.redTeams.map(t => `frc${t}`),
+                surrogate_team_keys: [],
+                dq_team_keys: []
+            },
+            blue: {
+                score: -1,
+                team_keys: match.blueTeams.map(t => `frc${t}`),
+                surrogate_team_keys: [],
+                dq_team_keys: []
+            }
+        },
+        winning_alliance: "" as "" | "red" | "blue",
+        event_key: eventKey,
+        time: Math.floor(Date.now() / 1000) + (index * 600),
+        predicted_time: Math.floor(Date.now() / 1000) + (index * 600),
+        actual_time: 0,
+        post_result_time: 0,
+        score_breakdown: null,
+        videos: []
+    }));
+
+    await cacheTBAMatches(tbaMatches);
+    console.log(`  ✓ Cached ${tbaMatches.length} matches as TBA data`);
+
+    const matchData = matches.map(match => ({
+        matchNumber: match.matchNumber,
+        redAlliance: match.redTeams,
+        blueAlliance: match.blueTeams
+    }));
+    localStorage.setItem('matchData', JSON.stringify(matchData));
+    console.log(`  ✓ Stored match schedule in localStorage for team selection`);
+}
+
+export async function generateDemoEventScheduleOnly(options: Pick<DemoDataOptions, 'eventKey' | 'clearExisting'> = {}): Promise<DemoDataResult> {
+    const {
+        eventKey = DEMO_EVENT_KEY,
+        clearExisting = true,
+    } = options;
+
+    console.log('🗓️ Generating demo event schedule only...');
+
+    try {
+        if (clearExisting) {
+            await db.scoutingData.where('eventKey').equals(eventKey).delete();
+            await clearEventCache(eventKey);
+            await gamificationDB.predictions.where('eventKey').equals(eventKey).delete();
+            console.log('  ✓ Cleared existing demo event scouting and cached schedule data');
+        }
+
+        const teams = generateTeamProfiles();
+        console.log(`  ✓ Generated ${teams.length} team profiles`);
+
+        const qualSchedule = generateQualSchedule(teams);
+        console.log(`  ✓ Generated ${qualSchedule.length} qual matches`);
+
+        localStorage.setItem('eventKey', eventKey);
+        setCurrentEvent(eventKey);
+        console.log(`  ✓ Set ${eventKey} as current event`);
+
+        await cacheAndStoreDemoSchedule(eventKey, qualSchedule);
+
+        return {
+            success: true,
+            message: `Demo schedule created: ${teams.length} teams, ${qualSchedule.length} matches`,
+            stats: {
+                teamsGenerated: teams.length,
+                qualMatches: qualSchedule.length,
+                playoffMatches: 0,
+                entriesGenerated: 0,
+            },
+        };
+    } catch (error) {
+        console.error('❌ Error generating demo schedule:', error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stats: {
+                teamsGenerated: 0,
+                qualMatches: 0,
+                playoffMatches: 0,
+                entriesGenerated: 0,
+            },
+        };
+    }
 }
 
 /**
@@ -624,48 +719,7 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
             console.error('Failed to update custom events list:', error);
         }
         
-        // Generate and cache TBA-style match schedule
-        const tbaMatches = allMatches.map((match, index) => ({
-            key: match.matchKey,
-            comp_level: match.compLevel,
-            set_number: 1,
-            match_number: match.matchNumber,
-            alliances: {
-                red: {
-                    score: -1,
-                    team_keys: match.redTeams.map(t => `frc${t}`),
-                    surrogate_team_keys: [],
-                    dq_team_keys: []
-                },
-                blue: {
-                    score: -1,
-                    team_keys: match.blueTeams.map(t => `frc${t}`),
-                    surrogate_team_keys: [],
-                    dq_team_keys: []
-                }
-            },
-            winning_alliance: "" as "" | "red" | "blue",
-            event_key: eventKey,
-            time: Math.floor(Date.now() / 1000) + (index * 600), // 10 minutes apart
-            predicted_time: Math.floor(Date.now() / 1000) + (index * 600),
-            actual_time: 0,
-            post_result_time: 0,
-            score_breakdown: null,
-            videos: []
-        }));
-        
-        // Cache the matches (pass matches first, not eventKey)
-        await cacheTBAMatches(tbaMatches);
-        console.log(`  ✓ Cached ${tbaMatches.length} matches as TBA data`);
-        
-        // Store match data in localStorage for team selection on GameStartPage
-        const matchData = allMatches.map(match => ({
-            matchNumber: match.matchNumber,
-            redAlliance: match.redTeams,
-            blueAlliance: match.blueTeams
-        }));
-        localStorage.setItem('matchData', JSON.stringify(matchData));
-        console.log(`  ✓ Stored match schedule in localStorage for team selection`);
+        await cacheAndStoreDemoSchedule(eventKey, allMatches);
         
         return {
             success: true,

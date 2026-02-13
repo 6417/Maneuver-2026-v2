@@ -15,10 +15,12 @@ interface HomePageProps {
   appName?: string;
   version?: string;
   onLoadDemoData?: () => Promise<void>;
+  onLoadDemoScheduleOnly?: () => Promise<void>;
   onClearData?: () => Promise<void>;
   checkExistingData?: () => Promise<boolean>;
   demoDataDescription?: string;
   demoDataStats?: string;
+  demoScheduleStats?: string;
 }
 
 
@@ -27,13 +29,17 @@ const HomePage = ({
   appName = "Maneuver",
   version = "1.0.0",
   onLoadDemoData,
+  onLoadDemoScheduleOnly,
   onClearData,
   checkExistingData,
   demoDataDescription = "Load sample scouting data to explore the app's features",
-  demoDataStats = "Demo data loaded successfully!"
+  demoDataStats = "Demo data loaded successfully!",
+  demoScheduleStats = "Demo schedule loaded successfully!"
 }: HomePageProps = {}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedType, setLoadedType] = useState<'demo' | 'schedule'>('demo');
+  const [loadingType, setLoadingType] = useState<'demo' | 'schedule' | null>(null);
 
   useEffect(() => {
     const checkData = async () => {
@@ -67,10 +73,12 @@ const HomePage = ({
 
     haptics.medium();
     setIsLoading(true);
+    setLoadingType('demo');
 
     try {
       await onLoadDemoData();
       setIsLoaded(true);
+      setLoadedType('demo');
       haptics.success();
       analytics.trackEvent('demo_data_loaded');
     } catch (error) {
@@ -81,6 +89,32 @@ const HomePage = ({
       }
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
+    }
+  };
+
+  const loadDemoScheduleOnly = async () => {
+    if (!onLoadDemoScheduleOnly) return;
+
+    haptics.medium();
+    setIsLoading(true);
+    setLoadingType('schedule');
+
+    try {
+      await onLoadDemoScheduleOnly();
+      setIsLoaded(true);
+      setLoadedType('schedule');
+      haptics.success();
+      analytics.trackEvent('demo_schedule_loaded');
+    } catch (error) {
+      haptics.error();
+      console.error("HomePage - Error loading demo schedule:", error);
+      if (error instanceof Error) {
+        console.error("Error details:", error.message, error.stack);
+      }
+    } finally {
+      setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
@@ -131,7 +165,7 @@ const HomePage = ({
         </div>
 
         {/* Demo Data Section - Only show if handlers provided */}
-        {(onLoadDemoData || onClearData) && (
+        {(onLoadDemoData || onLoadDemoScheduleOnly || onClearData) && (
           <Card className="w-full max-w-md mx-4 mt-8 scale-75 md:scale-100">
             <CardContent className="p-6">
               <div className="text-center space-y-4">
@@ -141,13 +175,27 @@ const HomePage = ({
                 </p>
 
                 {!isLoaded ? (
-                  <Button
-                    onClick={loadDemoData}
-                    disabled={isLoading || !onLoadDemoData}
-                    className="w-full"
-                  >
-                    {isLoading ? "Loading..." : "Load Demo Data"}
-                  </Button>
+                  <div className="space-y-2">
+                    {onLoadDemoData && (
+                      <Button
+                        onClick={loadDemoData}
+                        disabled={isLoading}
+                        className="w-full"
+                      >
+                        {isLoading && loadingType === 'demo' ? "Loading..." : "Load Demo Data"}
+                      </Button>
+                    )}
+                    {onLoadDemoScheduleOnly && (
+                      <Button
+                        onClick={loadDemoScheduleOnly}
+                        disabled={isLoading}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        {isLoading && loadingType === 'schedule' ? "Loading..." : "Load Demo Schedule"}
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-center gap-2 text-sm text-green-600">
@@ -164,7 +212,7 @@ const HomePage = ({
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      {demoDataStats}
+                      {loadedType === 'schedule' ? demoScheduleStats : demoDataStats}
                     </div>
                     {onClearData && (
                       <Button

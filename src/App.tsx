@@ -60,9 +60,10 @@ import { scoringCalculations } from "@/game-template/scoring";
 import { gameDataTransformation } from "@/game-template/transformation";
 import { StatusToggles, GameSpecificQuestions } from "@/game-template/components";
 import logo from "../src/assets/Maneuver Wordmark Vertical.png";
-import { generateDemoEvent } from "@/core/lib/demoDataGenerator";
+import { generateDemoEvent, generateDemoEventScheduleOnly } from "@/core/lib/demoDataGenerator";
 import { generate2026GameData } from "@/game-template/demoDataGenerator2026";
 import { db, pitDB, gameDB } from "@/db";
+import { clearEventCache, getCachedTBAEventMatches } from "@/core/lib/tbaCache";
 
 // Mock implementations for missing template parts
 const mockConfig = { year: 2026, gameName: "REBUILT", scoring: { auto: {}, teleop: {}, endgame: {} } };
@@ -100,6 +101,25 @@ const loadDemoData = async () => {
   console.log('✅ Demo data loaded successfully!');
 };
 
+const loadDemoScheduleOnly = async () => {
+  console.log('🗓️ Loading demo schedule only...');
+
+  await generateDemoEventScheduleOnly({
+    eventKey: DEMO_EVENT_KEY,
+    clearExisting: true,
+  });
+
+  localStorage.setItem('eventName', DEMO_EVENT_KEY);
+
+  const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
+  if (!eventsList.includes(DEMO_EVENT_KEY)) {
+    eventsList.push(DEMO_EVENT_KEY);
+    localStorage.setItem('eventsList', JSON.stringify(eventsList));
+  }
+
+  console.log('✅ Demo schedule loaded successfully!');
+};
+
 const clearDemoData = async () => {
   console.log('🗑️ Clearing demo data...');
   
@@ -109,6 +129,7 @@ const clearDemoData = async () => {
   await gameDB.scouts.clear();
   await gameDB.predictions.where('eventKey').equals(DEMO_EVENT_KEY).delete();
   await gameDB.scoutAchievements.clear();
+  await clearEventCache(DEMO_EVENT_KEY);
   
   // Clear from local storage
   const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
@@ -118,14 +139,24 @@ const clearDemoData = async () => {
   if (localStorage.getItem('eventName') === DEMO_EVENT_KEY) {
     localStorage.removeItem('eventName');
   }
+
+  if (localStorage.getItem('eventKey') === DEMO_EVENT_KEY) {
+    localStorage.removeItem('eventKey');
+  }
+
+  const customEvents = JSON.parse(localStorage.getItem('customEventsList') || '[]');
+  const filteredCustomEvents = customEvents.filter((e: string) => e !== DEMO_EVENT_KEY);
+  localStorage.setItem('customEventsList', JSON.stringify(filteredCustomEvents));
+
+  localStorage.removeItem('matchData');
   
   console.log('✅ Demo data cleared successfully!');
 };
 
 const checkDemoData = async (): Promise<boolean> => {
   const entryCount = await db.scoutingData.where('eventKey').equals(DEMO_EVENT_KEY).count();
-  const scoutCount = await gameDB.scouts.count();
-  return entryCount > 0 || scoutCount > 0;
+  const cachedMatches = await getCachedTBAEventMatches(DEMO_EVENT_KEY);
+  return entryCount > 0 || cachedMatches.length > 0;
 };
 
 function App() {
@@ -152,12 +183,14 @@ function App() {
             <HomePage 
               logo={logo} 
               appName="Maneuver 2026"
-              version="2026.0.2"
+              version="2026.0.3"
               onLoadDemoData={loadDemoData}
+              onLoadDemoScheduleOnly={loadDemoScheduleOnly}
               onClearData={clearDemoData}
               checkExistingData={checkDemoData}
               demoDataDescription="Load sample data for 30 teams, 60 matches, 8 scouts with predictions, and pit scouting to explore all features"
               demoDataStats="Demo data loaded! 30 teams, 60 matches, 8 scouts"
+              demoScheduleStats="Demo schedule loaded! 30 teams, 60 matches"
             />
           } 
         />
