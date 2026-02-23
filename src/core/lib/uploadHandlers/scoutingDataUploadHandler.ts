@@ -14,6 +14,28 @@ interface RawScoutingData {
   entries: ScoutingEntryBase[];
 }
 
+const isValidAllianceColor = (value: unknown): value is 'red' | 'blue' => {
+  return value === 'red' || value === 'blue';
+};
+
+const isValidScoutingEntry = (value: unknown): value is ScoutingEntryBase => {
+  if (!value || typeof value !== 'object') return false;
+
+  const entry = value as Record<string, unknown>;
+
+  return (
+    typeof entry.id === 'string' && entry.id.trim().length > 0 &&
+    typeof entry.teamNumber === 'number' && Number.isFinite(entry.teamNumber) &&
+    typeof entry.matchNumber === 'number' && Number.isFinite(entry.matchNumber) &&
+    typeof entry.matchKey === 'string' && entry.matchKey.trim().length > 0 &&
+    isValidAllianceColor(entry.allianceColor) &&
+    typeof entry.scoutName === 'string' && entry.scoutName.trim().length > 0 &&
+    typeof entry.eventKey === 'string' && entry.eventKey.trim().length > 0 &&
+    typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp) &&
+    typeof entry.gameData === 'object' && entry.gameData !== null
+  );
+};
+
 // Return type for async upload operations that may have conflicts
 export interface UploadResult {
   hasConflicts: boolean;
@@ -36,7 +58,13 @@ export const handleScoutingDataUpload = async (jsonData: unknown, mode: UploadMo
     "entries" in jsonData &&
     Array.isArray((jsonData as RawScoutingData).entries)
   ) {
-    newEntries = (jsonData as RawScoutingData).entries;
+    const rawEntries = (jsonData as RawScoutingData).entries as unknown[];
+    newEntries = rawEntries.filter(isValidScoutingEntry);
+
+    const invalidCount = rawEntries.length - newEntries.length;
+    if (invalidCount > 0) {
+      toast.warning(`Skipped ${invalidCount} invalid scouting ${invalidCount === 1 ? 'entry' : 'entries'} in upload file.`);
+    }
   } else {
     toast.error("Invalid scouting data format. Expected { entries: ScoutingEntryBase[] }");
     return { hasConflicts: false };
