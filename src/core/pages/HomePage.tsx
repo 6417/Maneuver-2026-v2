@@ -27,7 +27,7 @@ interface HomePageProps {
 const HomePage = ({
   logo,
   appName = "Maneuver",
-  version = "2026.0.5",
+  version = "2026.0.6",
   onLoadDemoData,
   onLoadDemoScheduleOnly,
   onClearData,
