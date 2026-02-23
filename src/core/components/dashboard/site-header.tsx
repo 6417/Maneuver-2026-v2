@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 
 export function SiteHeader() {
   const location = useLocation();
-  
+
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -15,7 +15,7 @@ export function SiteHeader() {
     const checkIsMobile = () => {
       const mobile = window.innerWidth < 1536;
       setIsMobile(mobile);
-      
+
       if (!mobile) {
         setIsHeaderVisible(true);
         return;
@@ -34,7 +34,7 @@ export function SiteHeader() {
           // Get scroll position from the SidebarInset container
           const scrollContainer = e.target as HTMLElement;
           const currentScrollY = scrollContainer.scrollTop;
-          
+
           if (currentScrollY <= 50) {
             // Always show header when at top
             setIsHeaderVisible(true);
@@ -98,7 +98,7 @@ export function SiteHeader() {
   }, [location.pathname, isMobile]); // Re-run when route changes or mobile state changes
 
   return (
-    <header 
+    <header
       className={`flex h-(--header-height) items-center bg-popover/95 backdrop-blur-sm gap-2 border-b transition-all duration-300 ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) py-2 z-30 ${
         isMobile 
           ? `fixed top-0 left-0 right-0 ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'}` 
@@ -117,7 +117,7 @@ export function SiteHeader() {
           </div>
           <Button variant="ghost" className="hidden sm:flex w-auto h-auto px-6">
             <a
-              href="https://github.com/ShinyShips/Maneuver"
+              href="https://github.com/6417/Maneuver-2026-v2"
               rel="noopener noreferrer"
               target="_blank"
               className="dark:text-foreground"

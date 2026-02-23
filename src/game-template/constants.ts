@@ -1,8 +1,8 @@
 /**
  * Game Point Values - 2026 REBUILT
- * 
+ *
  * DERIVED FROM: game-schema.ts
- * 
+ *
  * This file re-exports point values from the schema for backwards compatibility.
  * New code should import directly from game-schema.ts.
  */
@@ -10,6 +10,37 @@
 import { actions, gameConstants } from "./game-schema";
 
 const MILLISECONDS_PER_SECOND = 1000;
+
+export const SCOUT_NAMES = [
+    "Alexandra",
+    "Andrin",
+    "Annika",
+    "Bruno",
+    "David",
+    "Elena",
+    "Florin",
+    "Fionan",
+    "Fionn",
+    "Gianluca",
+    "Hanna",
+    "Janis G",
+    "Janis J",
+    "Jasmin",
+    "Lisa",
+    "Marius",
+    "Nando",
+    "Nico",
+    "Noe",
+    "Arda",
+    "Bea",
+    "Beat",
+    "Chris",
+    "Hans",
+    "Iris",
+    "Rolf",
+    "Tim",
+    "Vreni"
+];
 
 // Re-export point values derived from schema
 export const AUTO_POINTS = {

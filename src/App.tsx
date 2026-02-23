@@ -63,11 +63,12 @@ import {
   GameSpecificQuestions,
   GameSpecificScoutOptions,
 } from "@/game-template/components";
+import { seedDatabase } from "@/game-template/databaseSeeder";
 import logo from "../src/assets/Maneuver Wordmark Vertical.png";
-import { generateDemoEvent, generateDemoEventScheduleOnly } from "@/core/lib/demoDataGenerator";
-import { generate2026GameData } from "@/game-template/demoDataGenerator2026";
-import { db, pitDB, gameDB } from "@/db";
-import { clearEventCache, clearEventValidationResults, getCachedTBAEventMatches } from "@/core/lib/tbaCache";
+// import { generateDemoEvent, generateDemoEventScheduleOnly } from "@/core/lib/demoDataGenerator";
+// import { generate2026GameData } from "@/game-template/demoDataGenerator2026";
+// import { db, pitDB, gameDB } from "@/db";
+// import { clearEventCache, clearEventValidationResults, getCachedTBAEventMatches } from "@/core/lib/tbaCache";
 
 // Mock implementations for missing template parts
 const mockConfig = { year: 2026, gameName: "REBUILT", scoring: { auto: {}, teleop: {}, endgame: {} } };
@@ -75,95 +76,95 @@ const mockValidation = { getDataCategories: () => [], calculateAllianceStats: ()
 const mockUI = { GameStartScreen: () => null, AutoScoringScreen: () => null, TeleopScoringScreen: () => null };
 
 // Demo data handlers
-const DEMO_EVENT_KEY = 'demo2026';
+// const DEMO_EVENT_KEY = 'demo2026';
 
-const loadDemoData = async () => {
-  console.log('🎲 Loading demo data...');
-  
-  // Generate comprehensive demo data
-  await generateDemoEvent({
-    eventKey: DEMO_EVENT_KEY,
-    clearExisting: true,
-    gameDataGenerator: generate2026GameData,
-    includePlayoffs: true,
-    seedFakeValidationResults: false,
-  });
-  
-  // Update local storage for demo event
-  localStorage.setItem('eventName', DEMO_EVENT_KEY);
-  
-  const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
-  if (!eventsList.includes(DEMO_EVENT_KEY)) {
-    eventsList.push(DEMO_EVENT_KEY);
-    localStorage.setItem('eventsList', JSON.stringify(eventsList));
-  }
-  
-  // Update scouts list
-  const scouts = await gameDB.scouts.toArray();
-  const scoutNames = scouts.map(s => s.name).sort();
-  localStorage.setItem('scoutsList', JSON.stringify(scoutNames));
-  
-  console.log('✅ Demo data loaded successfully!');
-};
-
-const loadDemoScheduleOnly = async () => {
-  console.log('🗓️ Loading demo schedule only...');
-
-  await generateDemoEventScheduleOnly({
-    eventKey: DEMO_EVENT_KEY,
-    clearExisting: true,
-  });
-
-  localStorage.setItem('eventName', DEMO_EVENT_KEY);
-
-  const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
-  if (!eventsList.includes(DEMO_EVENT_KEY)) {
-    eventsList.push(DEMO_EVENT_KEY);
-    localStorage.setItem('eventsList', JSON.stringify(eventsList));
-  }
-
-  console.log('✅ Demo schedule loaded successfully!');
-};
-
-const clearDemoData = async () => {
-  console.log('🗑️ Clearing demo data...');
-  
-  // Clear all demo data from databases
-  await db.scoutingData.where('eventKey').equals(DEMO_EVENT_KEY).delete();
-  await pitDB.pitScoutingData.where('eventKey').equals(DEMO_EVENT_KEY).delete();
-  await gameDB.scouts.clear();
-  await gameDB.predictions.where('eventKey').equals(DEMO_EVENT_KEY).delete();
-  await gameDB.scoutAchievements.clear();
-  await clearEventCache(DEMO_EVENT_KEY);
-  await clearEventValidationResults(DEMO_EVENT_KEY);
-  
-  // Clear from local storage
-  const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
-  const filtered = eventsList.filter((e: string) => e !== DEMO_EVENT_KEY);
-  localStorage.setItem('eventsList', JSON.stringify(filtered));
-  
-  if (localStorage.getItem('eventName') === DEMO_EVENT_KEY) {
-    localStorage.removeItem('eventName');
-  }
-
-  if (localStorage.getItem('eventKey') === DEMO_EVENT_KEY) {
-    localStorage.removeItem('eventKey');
-  }
-
-  const customEvents = JSON.parse(localStorage.getItem('customEventsList') || '[]');
-  const filteredCustomEvents = customEvents.filter((e: string) => e !== DEMO_EVENT_KEY);
-  localStorage.setItem('customEventsList', JSON.stringify(filteredCustomEvents));
-
-  localStorage.removeItem('matchData');
-  
-  console.log('✅ Demo data cleared successfully!');
-};
-
-const checkDemoData = async (): Promise<boolean> => {
-  const entryCount = await db.scoutingData.where('eventKey').equals(DEMO_EVENT_KEY).count();
-  const cachedMatches = await getCachedTBAEventMatches(DEMO_EVENT_KEY);
-  return entryCount > 0 || cachedMatches.length > 0;
-};
+// const loadDemoData = async () => {
+//   console.log('🎲 Loading demo data...');
+//
+//   // Generate comprehensive demo data
+//   await generateDemoEvent({
+//     eventKey: DEMO_EVENT_KEY,
+//     clearExisting: true,
+//     gameDataGenerator: generate2026GameData,
+//     includePlayoffs: true,
+//     seedFakeValidationResults: false,
+//   });
+//
+//   // Update local storage for demo event
+//   localStorage.setItem('eventName', DEMO_EVENT_KEY);
+//
+//   const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
+//   if (!eventsList.includes(DEMO_EVENT_KEY)) {
+//     eventsList.push(DEMO_EVENT_KEY);
+//     localStorage.setItem('eventsList', JSON.stringify(eventsList));
+//   }
+//
+//   // Update scouts list
+//   const scouts = await gameDB.scouts.toArray();
+//   const scoutNames = scouts.map(s => s.name).sort();
+//   localStorage.setItem('scoutsList', JSON.stringify(scoutNames));
+//
+//   console.log('✅ Demo data loaded successfully!');
+// };
+//
+// const loadDemoScheduleOnly = async () => {
+//   console.log('🗓️ Loading demo schedule only...');
+//
+//   await generateDemoEventScheduleOnly({
+//     eventKey: DEMO_EVENT_KEY,
+//     clearExisting: true,
+//   });
+//
+//   localStorage.setItem('eventName', DEMO_EVENT_KEY);
+//
+//   const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
+//   if (!eventsList.includes(DEMO_EVENT_KEY)) {
+//     eventsList.push(DEMO_EVENT_KEY);
+//     localStorage.setItem('eventsList', JSON.stringify(eventsList));
+//   }
+//
+//   console.log('✅ Demo schedule loaded successfully!');
+// };
+//
+// const clearDemoData = async () => {
+//   console.log('🗑️ Clearing demo data...');
+//
+//   // Clear all demo data from databases
+//   await db.scoutingData.where('eventKey').equals(DEMO_EVENT_KEY).delete();
+//   await pitDB.pitScoutingData.where('eventKey').equals(DEMO_EVENT_KEY).delete();
+//   await gameDB.scouts.clear();
+//   await gameDB.predictions.where('eventKey').equals(DEMO_EVENT_KEY).delete();
+//   await gameDB.scoutAchievements.clear();
+//   await clearEventCache(DEMO_EVENT_KEY);
+//   await clearEventValidationResults(DEMO_EVENT_KEY);
+//
+//   // Clear from local storage
+//   const eventsList = JSON.parse(localStorage.getItem('eventsList') || '[]');
+//   const filtered = eventsList.filter((e: string) => e !== DEMO_EVENT_KEY);
+//   localStorage.setItem('eventsList', JSON.stringify(filtered));
+//
+//   if (localStorage.getItem('eventName') === DEMO_EVENT_KEY) {
+//     localStorage.removeItem('eventName');
+//   }
+//
+//   if (localStorage.getItem('eventKey') === DEMO_EVENT_KEY) {
+//     localStorage.removeItem('eventKey');
+//   }
+//
+//   const customEvents = JSON.parse(localStorage.getItem('customEventsList') || '[]');
+//   const filteredCustomEvents = customEvents.filter((e: string) => e !== DEMO_EVENT_KEY);
+//   localStorage.setItem('customEventsList', JSON.stringify(filteredCustomEvents));
+//
+//   localStorage.removeItem('matchData');
+//
+//   console.log('✅ Demo data cleared successfully!');
+// };
+//
+// const checkDemoData = async (): Promise<boolean> => {
+//   const entryCount = await db.scoutingData.where('eventKey').equals(DEMO_EVENT_KEY).count();
+//   const cachedMatches = await getCachedTBAEventMatches(DEMO_EVENT_KEY);
+//   return entryCount > 0 || cachedMatches.length > 0;
+// };
 
 function App() {
   const router = createBrowserRouter(
@@ -188,22 +189,22 @@ function App() {
           </GameProvider>
         }
       >
-        <Route 
-          index 
+        <Route
+          index
           element={
-            <HomePage 
-              logo={logo} 
-              appName="Maneuver 2026"
+            <HomePage
+              logo={logo}
+              appName="Maneuver 2026 by 6417"
               version="2026.0.5"
-              onLoadDemoData={loadDemoData}
-              onLoadDemoScheduleOnly={loadDemoScheduleOnly}
-              onClearData={clearDemoData}
-              checkExistingData={checkDemoData}
-              demoDataDescription="Load sample data for 30 teams, 60 matches, 8 scouts with predictions, and pit scouting to explore all features"
-              demoDataStats="Demo data loaded! 30 teams, 60 matches, 8 scouts"
-              demoScheduleStats="Demo schedule loaded! 30 teams, 60 matches"
+              // onLoadDemoData={loadDemoData}
+              // onLoadDemoScheduleOnly={loadDemoScheduleOnly}
+              // onClearData={clearDemoData}
+              // checkExistingData={checkDemoData}
+              // demoDataDescription="Load sample data for 30 teams, 60 matches, 8 scouts with predictions, and pit scouting to explore all features"
+              // demoDataStats="Demo data loaded! 30 teams, 60 matches, 8 scouts"
+              // demoScheduleStats="Demo schedule loaded! 30 teams, 60 matches"
             />
-          } 
+          }
         />
         <Route path="/game-start" element={<GameStartPage />} />
         <Route path="/auto-start" element={<AutoStartPage />} />
@@ -226,6 +227,7 @@ function App() {
         {/* <Route path="/auto-scoring" element={<AutoScoringPage />} /> */}
         {/* <Route path="/teleop-scoring" element={<TeleopScoringPage />} /> */}
         {/* <Route path="/endgame" element={<EndgamePage />} /> */}
+
         <Route path="/team-stats" element={<TeamStatsPage />} />
         <Route path="/strategy-overview" element={<StrategyOverviewPage />} />
         <Route path="/match-strategy" element={<MatchStrategyPage />} />
@@ -297,6 +299,10 @@ function App() {
         });
       }, 2000);
     }
+
+    seedDatabase().then(() => {
+      console.log("seed database with predefined scouting names.");
+    });
 
   }, []);
 
