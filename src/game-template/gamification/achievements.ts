@@ -38,8 +38,28 @@ export const ACHIEVEMENT_TIERS: AchievementTierStyles = {
 export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     // Volume Achievements
     {
-        id: 'first_prediction',
+        id: 'first_scouting',
         name: 'Scout Rookie',
+        description: 'Scout your first match',
+        icon: '🎯',
+        category: 'scouting',
+        tier: 'bronze',
+        requirements: { type: 'minimum', value: 1, property: 'totalScouting' },
+        stakesReward: 5
+    },
+    {
+        id: 'scouting_10',
+        name: 'Getting Started',
+        description: 'Make 10 Scoutings',
+        icon: '📊',
+        category: 'scouting',
+        tier: 'bronze',
+        requirements: { type: 'minimum', value: 10, property: 'totalScouting' },
+        stakesReward: 10
+    },
+    {
+        id: 'first_prediction',
+        name: 'Scout Prediction Rookie',
         description: 'Make your first prediction',
         icon: '🎯',
         category: 'volume',

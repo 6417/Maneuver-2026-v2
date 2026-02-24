@@ -4,7 +4,8 @@ import { getAchievementStats } from '@/core/lib/achievementUtils';
 import type { Scout } from '@/game-template/gamification';
 import { analytics } from '@/core/lib/analytics';
 
-export type ScoutMetric = "stakes" | "totalStakes" | "totalPredictions" | "correctPredictions" | "accuracy" | "currentStreak" | "longestStreak";
+export type ScoutMetric = "stakes" | "totalStakes" | "totalScoutings" | "totalPredictions" | "correctPredictions" | "accuracy" | "currentStreak" | "longestStreak";
+
 
 export interface ScoutChartData {
   name: string;
@@ -22,6 +23,7 @@ export function useScoutDashboard() {
   const metricOptions = [
     { key: "totalStakes", label: "Total Stakes", icon: "Trophy" },
     { key: "stakes", label: "Prediction Stakes", icon: "Trophy" },
+    { key: "totalScoutings", label: "Total Scoutings", icon: "Award" },
     { key: "totalPredictions", label: "Total Predictions", icon: "Target" },
     { key: "correctPredictions", label: "Correct Predictions", icon: "Award" },
     { key: "accuracy", label: "Accuracy %", icon: "TrendingUp" },

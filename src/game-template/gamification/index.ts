@@ -1,10 +1,10 @@
 /**
  * Scout Gamification Module
- * 
+ *
  * OPTIONAL FEATURE: This module provides gamification features for scout motivation.
  * Teams can choose not to use this if they prefer a simpler scouting experience
  * or have concerns about the competitive/gambling-like nature of predictions.
- * 
+ *
  * To enable: Import from '@/game-template/gamification'
  * To disable: Simply don't import this module
  */
@@ -31,6 +31,7 @@ export {
     getAllScouts,
     updateScoutPoints,
     updateScoutStats,
+    incrementScoutCount,
     deleteScout,
     clearGamificationData,
     createMatchPrediction,

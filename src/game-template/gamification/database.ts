@@ -1,6 +1,6 @@
 /**
  * Scout Gamification Database
- * 
+ *
  * OPTIONAL FEATURE: Provides Dexie database for gamification features.
  * To disable gamification, don't import this module.
  */
@@ -36,7 +36,14 @@ export class ScoutGamificationDB extends Dexie {
                 scout.stakesFromPredictions = scout.stakes || 0;
             });
         });
-    }
+
+        this.version(3).stores({
+            scouts: 'name, stakes, stakesFromPredictions, totalPredictions, totalScoutings, correctPredictions, currentStreak, longestStreak, lastUpdated',
+        }).upgrade(tx => {
+            return tx.table('scouts').toCollection().modify(scout => {
+                scout.totalScoutings = scout.totalScoutings || 0;
+            });
+        });    }
 }
 
 // Singleton database instance
@@ -68,6 +75,7 @@ export const getOrCreateScout = async (name: string): Promise<Scout> => {
         stakes: 0,
         stakesFromPredictions: 0,
         totalPredictions: 0,
+        totalScoutings: 0,
         correctPredictions: 0,
         currentStreak: 0,
         longestStreak: 0,
@@ -112,6 +120,7 @@ export const updateScoutStats = async (
     name: string,
     newStakes: number,
     correctPredictions: number,
+    totalScoutings: number,
     totalPredictions: number,
     currentStreak?: number,
     longestStreak?: number,
@@ -123,6 +132,7 @@ export const updateScoutStats = async (
         scout.stakesFromPredictions += additionalStakesFromPredictions;
         scout.correctPredictions = correctPredictions;
         scout.totalPredictions = totalPredictions;
+        scout.totalScoutings = totalScoutings;
 
         if (currentStreak !== undefined) {
             scout.currentStreak = currentStreak;
@@ -150,6 +160,15 @@ export const clearGamificationData = async (): Promise<void> => {
     await gamificationDB.scouts.clear();
     await gamificationDB.predictions.clear();
     await gamificationDB.scoutAchievements.clear();
+};
+
+export const incrementScoutCount = async (name: string): Promise<void> => {
+    const scout = await gamificationDB.scouts.get(name);
+    if (scout) {
+        scout.totalScoutings = (scout.totalScoutings || 0) + 1;
+        scout.lastUpdated = Date.now();
+        await gamificationDB.scouts.put(scout);
+    }
 };
 
 // ============================================================================

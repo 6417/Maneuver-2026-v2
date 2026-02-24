@@ -19,6 +19,9 @@ export interface Scout {
     /** Total number of match predictions made */
     totalPredictions: number;
 
+    /** Total number of match predictions made */
+    totalScoutings: number;
+
     /** Number of correct predictions */
     correctPredictions: number;
 

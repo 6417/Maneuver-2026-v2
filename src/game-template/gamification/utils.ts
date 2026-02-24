@@ -1,6 +1,6 @@
 /**
  * Scout Gamification Utilities
- * 
+ *
  * OPTIONAL FEATURE: Helpers for stake calculations and streak tracking.
  */
 
@@ -65,7 +65,7 @@ const isMatchSequential = async (
 
 /**
  * Update scout with prediction result and handle streaks
- * 
+ *
  * @param name Scout name
  * @param isCorrect Whether prediction was correct
  * @param basePoints Base points to award
@@ -116,6 +116,7 @@ export const updateScoutWithPredictionResult = async (
         name,
         scout.stakes + pointsAwarded,
         scout.correctPredictions + (isCorrect ? 1 : 0),
+        scout.totalScoutings +1,
         scout.totalPredictions + 1,
         newCurrentStreak,
         newLongestStreak,

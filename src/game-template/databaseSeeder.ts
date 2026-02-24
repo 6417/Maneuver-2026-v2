@@ -18,6 +18,7 @@ export const seedDatabase = async () => {
           stakes: 0,
           stakesFromPredictions: 0,
           totalPredictions: 0,
+          totalScoutings: 0,
           correctPredictions: 0,
           currentStreak: 0,
           longestStreak: 0,

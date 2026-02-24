@@ -1,10 +1,10 @@
 /**
  * Scout Gamification Types
- * 
+ *
  * OPTIONAL FEATURE: This module provides gamification features for scout motivation.
  * Teams can choose not to use this if they prefer a simpler scouting experience
  * or have concerns about the competitive/gambling-like nature of predictions.
- * 
+ *
  * To disable: Simply don't import from this module.
  */
 
@@ -19,7 +19,7 @@ import {
 export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
 // Achievement categories
-export type AchievementCategory = 'predictions' | 'scouting' | 'streaks' | 'special';
+export type AchievementCategory = 'predictions' | 'scouting' | 'volume' | 'streaks' | 'special';
 
 // Achievement requirement definition
 export interface AchievementRequirement {
@@ -28,7 +28,7 @@ export interface AchievementRequirement {
     description: string;
 }
 
-// Achievement definition  
+// Achievement definition
 export interface Achievement {
     id: string;
     name: string;
