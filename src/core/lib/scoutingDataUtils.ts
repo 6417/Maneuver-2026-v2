@@ -13,19 +13,33 @@ export const normalizeEventKey = (eventKey: string): string => {
   return String(eventKey).toLowerCase().trim();
 };
 
+const isValidAllianceColor = (value: unknown): value is 'red' | 'blue' => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return normalized === 'red' || normalized === 'blue';
+};
+
 /**
  * Generate a deterministic ID
  */
 export const generateDeterministicEntryId = (
-  eventKey: string,
-  matchKey: string,
-  teamNumber: number,
-  allianceColor: 'red' | 'blue'
-): string => {
-  const event = normalizeEventKey(eventKey);
-  const match = String(matchKey).toLowerCase().trim();
-  const team = String(teamNumber).trim();
-  const alliance = allianceColor.toLowerCase().trim();
+  eventKey: unknown,
+  matchKey: unknown,
+  teamNumber: unknown,
+  allianceColor: unknown
+): string | null => {
+  const event = typeof eventKey === 'string' ? normalizeEventKey(eventKey) : '';
+  const match = typeof matchKey === 'string' ? matchKey.toLowerCase().trim() : '';
+  const team = typeof teamNumber === 'number' && Number.isFinite(teamNumber)
+    ? String(teamNumber).trim()
+    : '';
+  const alliance = isValidAllianceColor(allianceColor)
+    ? allianceColor.toLowerCase().trim()
+    : '';
+
+  if (!event || !match || !team || !alliance) {
+    return null;
+  }
   
   return `${event}::${match}::${team}::${alliance}`;
 };
@@ -255,7 +269,7 @@ export const detectConflicts = async (
   );
   
   const localEntriesByFields = new Map(
-    allLocalEntries.map(entry => {
+    allLocalEntries.flatMap(entry => {
       const typedEntry = entry as unknown as ScoutingEntryBase;
       const key = generateDeterministicEntryId(
         typedEntry.eventKey,
@@ -263,7 +277,7 @@ export const detectConflicts = async (
         typedEntry.teamNumber,
         typedEntry.allianceColor
       );
-      return [key, typedEntry];
+      return key ? [[key, typedEntry] as const] : [];
     })
   );
   
@@ -277,7 +291,10 @@ export const detectConflicts = async (
         incomingEntry.teamNumber,
         incomingEntry.allianceColor
       );
-      matchingLocal = localEntriesByFields.get(fieldBasedKey);
+
+      if (fieldBasedKey) {
+        matchingLocal = localEntriesByFields.get(fieldBasedKey);
+      }
     }
     
     if (!matchingLocal) {

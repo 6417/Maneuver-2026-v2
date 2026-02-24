@@ -1,5 +1,34 @@
 import { isMatchSchedulePayload } from "@/core/lib/matchScheduleTransfer";
 
+const isPitLikeEntry = (entry: Record<string, unknown>): boolean => {
+  if (typeof entry.id === 'string' && entry.id.startsWith('pit-')) {
+    return true;
+  }
+
+  if ('robotPhoto' in entry) {
+    return true;
+  }
+
+  if (
+    entry.drivetrain !== undefined ||
+    entry.weight !== undefined ||
+    entry.reportedAutoScoring !== undefined ||
+    entry.reportedTeleopScoring !== undefined
+  ) {
+    return true;
+  }
+
+  const gameData = entry.gameData;
+  if (gameData && typeof gameData === 'object' && !Array.isArray(gameData)) {
+    const gameDataRecord = gameData as Record<string, unknown>;
+    if (gameDataRecord.reportedAutosByStart !== undefined) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 // Function to detect data type from JSON content
 export const detectDataType = (jsonData: unknown): 'scouting' | 'scoutProfiles' | 'pitScouting' | 'pitScoutingImagesOnly' | 'matchSchedule' | null => {
   if (!jsonData || typeof jsonData !== 'object') return null;
@@ -25,9 +54,7 @@ export const detectDataType = (jsonData: unknown): 'scouting' | 'scoutProfiles' 
     const entries = data.entries as unknown[];
     if (entries.length > 0 && typeof entries[0] === 'object' && entries[0] !== null) {
       const entry = entries[0] as Record<string, unknown>;
-      if (entry.teamNumber && entry.scoutName && 
-          (entry.drivetrain !== undefined || entry.weight !== undefined || 
-           entry.reportedAutoScoring !== undefined || entry.reportedTeleopScoring !== undefined)) {
+      if (entry.teamNumber && entry.scoutName && isPitLikeEntry(entry)) {
         return 'pitScouting';
       }
     }
