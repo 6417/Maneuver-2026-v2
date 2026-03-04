@@ -179,9 +179,9 @@ export const gameDataTransformation: DataTransformation = {
             break;
           case 'traversal':
             // Boolean flags for trench/bump usage in auto
-            if (wp.action === 'trench') {
+            if (wp.action === 'trench' || wp.action === 'trench1' || wp.action === 'trench2') {
               result.auto.autoTrench = true;
-            } else if (wp.action === 'bump') {
+            } else if (wp.action === 'bump' || wp.action === 'bump1' || wp.action === 'bump2') {
               result.auto.autoBump = true;
             } else if (wp.action === 'trench-stuck') {
               // Legacy: traversal-stuck from old flow (no duration)
@@ -196,6 +196,11 @@ export const gameDataTransformation: DataTransformation = {
           case 'climb':
             if (typeof wp.climbStartTimeSecRemaining === 'number') {
               result.auto.autoClimbStartTimeSecRemaining = wp.climbStartTimeSecRemaining;
+            }
+            if (wp.climbLocation === 'side') {
+              result.auto.autoClimbFromSide = true;
+            } else if (wp.climbLocation === 'middle') {
+              result.auto.autoClimbFromMiddle = true;
             }
             if (wp.action === 'climb-success') {
               result.auto.autoClimbL1 = true;
@@ -240,11 +245,16 @@ export const gameDataTransformation: DataTransformation = {
             result.teleop.fuelPassedCount = (result.teleop.fuelPassedCount || 0) + Math.abs(wp.fuelDelta || 0);
             break;
           case 'climb': {
-            // Track climb level and outcome in endgame section
+            // Track climb level, location, and outcome in endgame section
             if (typeof wp.climbStartTimeSecRemaining === 'number') {
               result.teleop.teleopClimbStartTimeSecRemaining = wp.climbStartTimeSecRemaining;
             }
             const level = [1, 2, 3].includes(wp.climbLevel) ? wp.climbLevel : 1;
+            if (wp.climbLocation === 'side') {
+              result.endgame.climbFromSide = true;
+            } else if (wp.climbLocation === 'middle') {
+              result.endgame.climbFromMiddle = true;
+            }
             if (wp.climbResult === 'success') {
               result.endgame[`climbL${level}`] = true;
             } else if (wp.climbResult === 'fail') {
@@ -253,6 +263,7 @@ export const gameDataTransformation: DataTransformation = {
             break;
           }
           case 'defense':
+            result.teleop.playedDefense = true;
             // Track defense by zone
             if (wp.zone === 'allianceZone') {
               result.teleop.defenseAllianceCount = (result.teleop.defenseAllianceCount || 0) + 1;
@@ -260,6 +271,13 @@ export const gameDataTransformation: DataTransformation = {
               result.teleop.defenseNeutralCount = (result.teleop.defenseNeutralCount || 0) + 1;
             } else if (wp.zone === 'opponentZone') {
               result.teleop.defenseOpponentCount = (result.teleop.defenseOpponentCount || 0) + 1;
+            }
+            if (wp.defenseEffectiveness === 'very') {
+              result.teleop.defenseVeryEffectiveCount = (result.teleop.defenseVeryEffectiveCount || 0) + 1;
+            } else if (wp.defenseEffectiveness === 'somewhat') {
+              result.teleop.defenseSomewhatEffectiveCount = (result.teleop.defenseSomewhatEffectiveCount || 0) + 1;
+            } else if (wp.defenseEffectiveness === 'not') {
+              result.teleop.defenseNotEffectiveCount = (result.teleop.defenseNotEffectiveCount || 0) + 1;
             }
             break;
           case 'steal':

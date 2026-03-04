@@ -5,7 +5,7 @@
  * Outputs raw match data that gets transformed through gameDataTransformation.
  */
 
-import type { GameDataGenerator } from '@/core/lib/demoDataGenerator';
+import type { GameDataGenerationContext, GameDataGenerator } from '@/core/lib/demoDataGenerator';
 import { gameDataTransformation } from './transformation';
 
 // Field element positions (normalized 0-1) for realistic waypoint placement
@@ -106,6 +106,107 @@ function randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function sampleSkewedInt(min: number, max: number, skewPower = 1): number {
+    const u = Math.random();
+    const skewed = Math.pow(u, skewPower);
+    return Math.floor(min + skewed * (max - min + 1));
+}
+
+function parseMatchOrdinal(matchKey: string): number {
+    const normalized = matchKey.toLowerCase();
+    const qm = normalized.match(/qm(\d+)/);
+    if (qm && qm[1]) {
+        return Number.parseInt(qm[1], 10);
+    }
+
+    const fallback = normalized.match(/(\d+)$/);
+    if (fallback && fallback[1]) {
+        return Number.parseInt(fallback[1], 10);
+    }
+
+    return 1;
+}
+
+function chooseClimbLocation(skillLevel: string, phase: 'auto' | 'teleop'): 'side' | 'middle' {
+    const sideChanceBySkill = phase === 'auto'
+        ? { elite: 0.72, strong: 0.64, average: 0.55, developing: 0.48 }
+        : { elite: 0.78, strong: 0.7, average: 0.6, developing: 0.52 };
+    const sideChance = sideChanceBySkill[skillLevel as keyof typeof sideChanceBySkill] ?? 0.55;
+    return Math.random() < sideChance ? 'side' : 'middle';
+}
+
+function sampleAutoClimbStartSec(skillLevel: string): number {
+    const baseBySkill = { elite: 4, strong: 6, average: 8, developing: 9 };
+    const rushedChanceBySkill = { elite: 0.1, strong: 0.14, average: 0.2, developing: 0.28 };
+    const cautiousChanceBySkill = { elite: 0.16, strong: 0.18, average: 0.2, developing: 0.25 };
+
+    const base = baseBySkill[skillLevel as keyof typeof baseBySkill] ?? 8;
+    let startSec = base + randomInt(-2, 2);
+
+    if (Math.random() < (rushedChanceBySkill[skillLevel as keyof typeof rushedChanceBySkill] ?? 0.2)) {
+        startSec -= randomInt(2, 4);
+    }
+    if (Math.random() < (cautiousChanceBySkill[skillLevel as keyof typeof cautiousChanceBySkill] ?? 0.2)) {
+        startSec += randomInt(1, 3);
+    }
+
+    return clamp(startSec, 0, 20);
+}
+
+function maxTeleopClimbLevelForTime(startSec: number): 0 | 1 | 2 | 3 {
+    if (startSec >= 26) return 3;
+    if (startSec >= 14) return 2;
+    if (startSec >= 8) return 1;
+    return 0;
+}
+
+type TeleopClimbBuildStyle = 'l1-only' | 'l3-focused';
+
+function chooseTeleopClimbBuildStyle(skillLevel: string): TeleopClimbBuildStyle {
+    const l3FocusChanceBySkill = {
+        elite: 0.82,
+        strong: 0.64,
+        average: 0.3,
+        developing: 0.14,
+    } as const;
+
+    const l3FocusChance = l3FocusChanceBySkill[skillLevel as keyof typeof l3FocusChanceBySkill] ?? 0.35;
+    return Math.random() < l3FocusChance ? 'l3-focused' : 'l1-only';
+}
+
+function sampleTeleopClimbStartSecForStyle(skillLevel: string, style: TeleopClimbBuildStyle): number {
+    const baseBySkillAndStyle = {
+        'l1-only': { elite: 14, strong: 18, average: 23, developing: 29 },
+        'l3-focused': { elite: 23, strong: 31, average: 40, developing: 48 },
+    } as const;
+
+    const rushedChanceBySkill = { elite: 0.08, strong: 0.12, average: 0.18, developing: 0.26 };
+    const cautiousChanceBySkill = style === 'l3-focused'
+        ? { elite: 0.26, strong: 0.3, average: 0.34, developing: 0.36 }
+        : { elite: 0.14, strong: 0.16, average: 0.2, developing: 0.24 };
+
+    const base = baseBySkillAndStyle[style][skillLevel as keyof (typeof baseBySkillAndStyle)[TeleopClimbBuildStyle]]
+        ?? (style === 'l3-focused' ? 38 : 24);
+    let startSec = base + randomInt(-6, 6);
+
+    if (style === 'l3-focused' && skillLevel === 'elite' && Math.random() < 0.35) {
+        startSec -= randomInt(5, 11);
+    }
+
+    if (Math.random() < (rushedChanceBySkill[skillLevel as keyof typeof rushedChanceBySkill] ?? 0.16)) {
+        startSec -= randomInt(4, 10);
+    }
+    if (Math.random() < (cautiousChanceBySkill[skillLevel as keyof typeof cautiousChanceBySkill] ?? 0.22)) {
+        startSec += randomInt(3, 10);
+    }
+
+    return clamp(startSec, 0, 135);
+}
+
 function pickShotType(phase: 'auto' | 'teleop', skillLevel: string): 'onTheMove' | 'stationary' {
     if (phase === 'auto') {
         const movingChanceBySkill: Record<string, number> = {
@@ -128,11 +229,69 @@ function pickShotType(phase: 'auto' | 'teleop', skillLevel: string): 'onTheMove'
     return Math.random() < movingChance ? 'onTheMove' : 'stationary';
 }
 
+function pickDefenseEffectiveness(skillLevel: string): 'very' | 'somewhat' | 'not' {
+    const roll = Math.random();
+
+    if (skillLevel === 'elite') {
+        if (roll < 0.55) return 'very';
+        if (roll < 0.9) return 'somewhat';
+        return 'not';
+    }
+
+    if (skillLevel === 'strong') {
+        if (roll < 0.4) return 'very';
+        if (roll < 0.82) return 'somewhat';
+        return 'not';
+    }
+
+    if (skillLevel === 'average') {
+        if (roll < 0.22) return 'very';
+        if (roll < 0.72) return 'somewhat';
+        return 'not';
+    }
+
+    if (roll < 0.12) return 'very';
+    if (roll < 0.58) return 'somewhat';
+    return 'not';
+}
+
+function pickDefenseZone(): 'opponentZone' | 'neutralZone' | 'allianceZone' {
+    const roll = Math.random();
+    if (roll < 0.78) return 'opponentZone';
+    if (roll < 0.95) return 'neutralZone';
+    return 'allianceZone';
+}
+
 /**
  * Generate realistic 2026 game data based on team skill profile
  */
-export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
+export const generate2026GameData: GameDataGenerator = (profile, matchKey, context?: GameDataGenerationContext) => {
     const isPlayoff = matchKey.includes('qf') || matchKey.includes('sf') || matchKey.includes('f');
+    const matchOrdinal = parseMatchOrdinal(matchKey);
+    const eventProgress = clamp(matchOrdinal / 70, 0, 1);
+    const rhythmVariance = (Math.random() - 0.5) * (1 - profile.consistency) * 0.16;
+    const progressionMultiplier = clamp(0.92 + eventProgress * 0.12 + rhythmVariance, 0.82, 1.18);
+    const lowOutputChanceBySkill = {
+        elite: 0.03,
+        strong: 0.07,
+        average: 0.13,
+        developing: 0.2,
+    } as const;
+    const deadMatchChanceBySkill = {
+        elite: 0.005,
+        strong: 0.012,
+        average: 0.025,
+        developing: 0.05,
+    } as const;
+
+    let profilePerformanceFactor = 1;
+    if (Math.random() < (lowOutputChanceBySkill[profile.skillLevel] ?? 0.1)) {
+        profilePerformanceFactor *= 0.45 + Math.random() * 0.35;
+    }
+    if (Math.random() < (deadMatchChanceBySkill[profile.skillLevel] ?? 0.02)) {
+        profilePerformanceFactor *= 0.03 + Math.random() * 0.12;
+    }
+
     const preferredLane: 'upper' | 'lower' = Math.random() < 0.5 ? 'upper' : 'lower';
     const preferredDepth: 'near' | 'far' = Math.random() < 0.6 ? 'near' : 'far';
 
@@ -152,22 +311,20 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
         position: POSITIONS[startKey],
     });
 
-    // Auto fuel scoring - Elite teams can score 100-150 in auto
-    // Elite: 100-150, Strong: 60-100, Average: 30-60, Developing: 10-30
-    let autoFuelCount = 0;
-    if (profile.skillLevel === 'elite') {
-        autoFuelCount = 100 + Math.floor(Math.random() * 51);
-    } else if (profile.skillLevel === 'strong') {
-        autoFuelCount = 60 + Math.floor(Math.random() * 41);
-    } else if (profile.skillLevel === 'average') {
-        autoFuelCount = 30 + Math.floor(Math.random() * 31);
-    } else {
-        autoFuelCount = 10 + Math.floor(Math.random() * 21);
-    }
+    // Auto fuel scoring calibrated from real-event distributions (per-match outputs)
+    const autoRangeBySkill = {
+        elite: { min: 6, max: 34, skew: 1.8 },
+        strong: { min: 2, max: 22, skew: 1.9 },
+        average: { min: 0, max: 14, skew: 2.1 },
+        developing: { min: 0, max: 8, skew: 2.3 },
+    } as const;
+    const autoRange = autoRangeBySkill[profile.skillLevel] ?? autoRangeBySkill.average;
+    let autoFuelCount = sampleSkewedInt(autoRange.min, autoRange.max, autoRange.skew);
 
     // Apply consistency variance and accuracy
     const variance = 1 - profile.consistency;
     autoFuelCount = Math.max(0, Math.floor(autoFuelCount * (1 + (Math.random() - 0.5) * variance)));
+    autoFuelCount = Math.max(0, Math.floor(autoFuelCount * profilePerformanceFactor));
     autoFuelCount = Math.floor(autoFuelCount * profile.autoAccuracy);
 
     // Add auto fuel scored waypoints as bursts (multi-ball per action)
@@ -218,9 +375,29 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
     // =========================================================================
     const teleopActions: any[] = [];
 
-    // Determine robot role - some robots are passers
-    const isPasser = Math.random() < 0.25; // 25% chance to be a passer
-    const playedDefense = Math.random() < 0.2;
+    // Determine robot role tendencies
+    const passerBaseBySkill = {
+        elite: 0.18,
+        strong: 0.24,
+        average: 0.3,
+        developing: 0.34,
+    } as const;
+    const defenseBaseBySkill = {
+        elite: 0.1,
+        strong: 0.16,
+        average: 0.24,
+        developing: 0.3,
+    } as const;
+
+    let passerChance = passerBaseBySkill[profile.skillLevel] ?? 0.24;
+    passerChance += profile.teleopAccuracy < 0.65 ? 0.06 : -0.03;
+    passerChance += profile.consistency < 0.72 ? 0.03 : -0.02;
+    const isPasser = Math.random() < clamp(passerChance, 0.08, 0.55);
+
+    let defenseChance = defenseBaseBySkill[profile.skillLevel] ?? 0.2;
+    defenseChance += profile.consistency < 0.68 ? 0.06 : -0.03;
+    defenseChance += isPlayoff ? -0.03 : 0.02;
+    const playedDefenseIntent = Math.random() < clamp(defenseChance, 0.1, 0.55);
 
     // Traversal archetype influences hopper size and cycle tempo
     // - bump-primary: larger hopper, fewer/bigger dumps
@@ -233,25 +410,24 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
     } as const;
     let bumpPrimaryChance: number = bumpPrimaryChanceBySkill[profile.skillLevel] ?? 0.4;
     if (isPasser) bumpPrimaryChance -= 0.1;
-    if (playedDefense) bumpPrimaryChance += 0.08;
+    if (playedDefenseIntent) bumpPrimaryChance += 0.08;
     bumpPrimaryChance = Math.max(0.1, Math.min(0.9, bumpPrimaryChance));
     const traversalArchetype: 'bump' | 'trench' = Math.random() < bumpPrimaryChance ? 'bump' : 'trench';
 
-    // Teleop fuel activity - Best robots ~400-500 total
-    // Elite: 250-400, Strong: 180-280, Average: 100-200, Developing: 50-120
-    let teleopFuelActivity = 0;
-    if (profile.skillLevel === 'elite') {
-        teleopFuelActivity = 250 + Math.floor(Math.random() * 151);
-    } else if (profile.skillLevel === 'strong') {
-        teleopFuelActivity = 180 + Math.floor(Math.random() * 101);
-    } else if (profile.skillLevel === 'average') {
-        teleopFuelActivity = 100 + Math.floor(Math.random() * 101);
-    } else {
-        teleopFuelActivity = 50 + Math.floor(Math.random() * 71);
-    }
+    // Teleop fuel activity calibrated from real-event long-tail distribution
+    const teleopRangeBySkill = {
+        elite: { min: 35, max: 170, skew: 1.35 },
+        strong: { min: 18, max: 120, skew: 1.55 },
+        average: { min: 8, max: 85, skew: 1.8 },
+        developing: { min: 0, max: 52, skew: 2.1 },
+    } as const;
+    const teleopRange = teleopRangeBySkill[profile.skillLevel] ?? teleopRangeBySkill.average;
+    let teleopFuelActivity = sampleSkewedInt(teleopRange.min, teleopRange.max, teleopRange.skew);
 
     // Apply variance and accuracy
     teleopFuelActivity = Math.max(0, Math.floor(teleopFuelActivity * (1 + (Math.random() - 0.5) * variance)));
+    teleopFuelActivity = Math.max(0, Math.floor(teleopFuelActivity * progressionMultiplier));
+    teleopFuelActivity = Math.max(0, Math.floor(teleopFuelActivity * profilePerformanceFactor));
     teleopFuelActivity = Math.floor(teleopFuelActivity * profile.teleopAccuracy);
 
     // In playoffs, teams push harder
@@ -264,14 +440,29 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
     let teleopPassCount = 0;
 
     if (isPasser) {
-        // Passers: 30% score, 70% pass
-        teleopFuelCount = Math.floor(teleopFuelActivity * 0.3);
-        teleopPassCount = Math.floor(teleopFuelActivity * 0.7);
+        const isPurePasser = Math.random() < 0.55;
+        if (isPurePasser) {
+            // Pure pass specialists from observed data: heavy pass, minimal score
+            teleopFuelCount = Math.floor(teleopFuelActivity * 0.15);
+            teleopPassCount = Math.floor(teleopFuelActivity * 0.85);
+        } else {
+            // Hybrid passers still contribute some direct scoring
+            teleopFuelCount = Math.floor(teleopFuelActivity * 0.4);
+            teleopPassCount = Math.floor(teleopFuelActivity * 0.6);
+        }
     } else {
-        // Scorers: 85% score, 15% pass
-        teleopFuelCount = Math.floor(teleopFuelActivity * 0.85);
-        teleopPassCount = Math.floor(teleopFuelActivity * 0.15);
+        // Scorers pass occasionally, especially under pressure
+        teleopFuelCount = Math.floor(teleopFuelActivity * 0.9);
+        teleopPassCount = Math.floor(teleopFuelActivity * 0.1);
     }
+
+    const passCapBySkill = {
+        elite: 145,
+        strong: 120,
+        average: 95,
+        developing: 75,
+    } as const;
+    teleopPassCount = Math.min(teleopPassCount, passCapBySkill[profile.skillLevel] ?? 100);
 
     // Add teleop scored waypoints as bursts (multi-ball per action)
     let remainingTeleopFuel = teleopFuelCount;
@@ -279,16 +470,16 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
     while (remainingTeleopFuel > 0) {
         const scoreBurstRangeByArchetype = {
             bump: {
-                elite: { min: 8, max: 80 },
-                strong: { min: 7, max: 65 },
-                average: { min: 6, max: 50 },
-                developing: { min: 5, max: 40 },
+                elite: { min: 5, max: 34 },
+                strong: { min: 4, max: 27 },
+                average: { min: 3, max: 20 },
+                developing: { min: 2, max: 14 },
             },
             trench: {
-                elite: { min: 4, max: 50 },
-                strong: { min: 4, max: 42 },
-                average: { min: 3, max: 34 },
-                developing: { min: 3, max: 26 },
+                elite: { min: 3, max: 24 },
+                strong: { min: 2, max: 20 },
+                average: { min: 2, max: 15 },
+                developing: { min: 1, max: 10 },
             },
         } as const;
         const scoreBurstRange = scoreBurstRangeByArchetype[traversalArchetype][profile.skillLevel];
@@ -316,22 +507,22 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
     }
 
     // Add fuel passed waypoints as bursts (distributed across neutral/opponent origin points)
-    const opponentOriginChance = isPasser ? 0.55 : playedDefense ? 0.45 : 0.2;
+    const opponentOriginChance = isPasser ? 0.55 : playedDefenseIntent ? 0.45 : 0.2;
     let remainingTeleopPasses = teleopPassCount;
     let teleopPassTimestamp = Date.now();
     while (remainingTeleopPasses > 0) {
         const passBurstRangeByArchetype = {
             bump: {
-                elite: { min: 6, max: 55 },
-                strong: { min: 5, max: 45 },
-                average: { min: 4, max: 35 },
-                developing: { min: 3, max: 28 },
+                elite: { min: 4, max: 26 },
+                strong: { min: 3, max: 22 },
+                average: { min: 2, max: 18 },
+                developing: { min: 1, max: 14 },
             },
             trench: {
-                elite: { min: 3, max: 35 },
-                strong: { min: 3, max: 30 },
-                average: { min: 2, max: 24 },
-                developing: { min: 2, max: 18 },
+                elite: { min: 2, max: 20 },
+                strong: { min: 2, max: 16 },
+                average: { min: 1, max: 13 },
+                developing: { min: 1, max: 10 },
             },
         } as const;
         const passBurstRange = passBurstRangeByArchetype[traversalArchetype][profile.skillLevel];
@@ -358,13 +549,98 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
             : randomInt(420, 1000);
     }
 
+    const opponentTeams = Array.isArray(context?.opponentTeams)
+        ? context!.opponentTeams.filter((team): team is number => Number.isFinite(team) && team > 0)
+        : [];
+
+    const generateFallbackOpponentTeam = () => randomInt(1000, 4029);
+    const primaryDefenseTarget = opponentTeams.length > 0
+        ? opponentTeams[randomInt(0, opponentTeams.length - 1)]
+        : generateFallbackOpponentTeam();
+
+    const defenseEventBase = playedDefenseIntent
+        ? randomInt(1, 4)
+        : (Math.random() < 0.18 ? 1 : 0);
+
+    for (let eventIndex = 0; eventIndex < defenseEventBase; eventIndex++) {
+        const defendedTeamNumber = (() => {
+            if (opponentTeams.length === 0) return generateFallbackOpponentTeam();
+            if (Math.random() < 0.7) return primaryDefenseTarget;
+            return opponentTeams[randomInt(0, opponentTeams.length - 1)]!;
+        })();
+
+        const defenseEffectiveness = pickDefenseEffectiveness(profile.skillLevel);
+        const zone = pickDefenseZone();
+        const anchorSpot = zone === 'opponentZone'
+            ? pickWeightedSpot(OPPONENT_PASS_SPOTS, { preferredLane, preferredDepth, profile: 'teleop' })
+            : zone === 'neutralZone'
+                ? pickWeightedSpot(NEUTRAL_PASS_SPOTS, { preferredLane, preferredDepth, profile: 'teleop' })
+                : pickWeightedSpot(ALLIANCE_SCORING_SPOTS, { preferredLane, preferredDepth, profile: 'teleop' });
+
+        teleopActions.push({
+            type: 'defense',
+            action: 'defense',
+            timestamp: Date.now() + randomInt(35000, 125000),
+            position: jitter(anchorSpot.pos, 0.06),
+            zone,
+            defendedTeamNumber,
+            defenseTargetSource: opponentTeams.length > 0 ? 'schedule' : 'custom',
+            defenseEffectiveness,
+        });
+    }
+
+    const playedDefense = defenseEventBase > 0;
+
     // =========================================================================
-    // Robot Status (Toggles)
+    // Climbing Simulation (start time + location + outcome)
     // =========================================================================
+
     const autoRobotStatus: Record<string, boolean> = {
-        // Auto climb L1 (15 pts) - elite teams sometimes do this
-        autoClimbL1: profile.skillLevel === 'elite' && Math.random() < 0.2,
+        autoClimbL1: false,
     };
+
+    const autoClimbAttemptChanceBySkill = {
+        elite: 0.38,
+        strong: 0.26,
+        average: 0.16,
+        developing: 0.09,
+    } as const;
+    const autoClimbSuccessBaseBySkill = {
+        elite: 0.9,
+        strong: 0.76,
+        average: 0.58,
+        developing: 0.42,
+    } as const;
+
+    let autoAttemptChance: number = autoClimbAttemptChanceBySkill[profile.skillLevel] ?? 0.15;
+    if (isPlayoff) autoAttemptChance = Math.min(0.55, autoAttemptChance + 0.05);
+
+    if (Math.random() < autoAttemptChance) {
+        const startSec = sampleAutoClimbStartSec(profile.skillLevel);
+        const climbLocation = chooseClimbLocation(profile.skillLevel, 'auto');
+        let successChance: number = autoClimbSuccessBaseBySkill[profile.skillLevel] ?? 0.6;
+
+        if (startSec <= 2) successChance -= 0.35;
+        else if (startSec <= 4) successChance -= 0.2;
+        else if (startSec <= 6) successChance -= 0.08;
+        else if (startSec >= 10) successChance += 0.05;
+
+        successChance = clamp(successChance * (0.9 + profile.consistency * 0.2), 0.1, 0.98);
+        const autoClimbSuccess = Math.random() < successChance;
+
+        autoActions.push({
+            type: 'climb',
+            action: autoClimbSuccess ? 'climb-success' : 'climb-fail',
+            timestamp: Date.now() + randomInt(12000, 19500),
+            position: jitter(POSITIONS.tower, 0.02),
+            climbResult: autoClimbSuccess ? 'success' : 'fail',
+            climbLocation,
+            climbStartTimeSecRemaining: startSec,
+            amountLabel: `${climbLocation === 'side' ? 'Side' : 'Middle'} ${autoClimbSuccess ? 'Succeeded' : 'Failed'}`,
+        });
+
+        autoRobotStatus.autoClimbL1 = autoClimbSuccess;
+    }
 
     const teleopRobotStatus: Record<string, boolean> = {
         // Defense play
@@ -382,24 +658,73 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
         climbFailed: false,
     };
 
-    // Determine climb level based on skill and endgame success
-    const endgameRoll = Math.random();
+    const teleopClimbAttemptChanceBySkill = {
+        elite: 0.97,
+        strong: 0.9,
+        average: 0.78,
+        developing: 0.62,
+    } as const;
 
-    if (endgameRoll < profile.endgameSuccess) {
-        // Successful climb - pick level based on skill
-        if (profile.skillLevel === 'elite' && Math.random() < 0.7) {
-            // Elite teams often go for level 3
-            endgameRobotStatus.climbL3 = true;
-        } else if (profile.skillLevel === 'strong' || (profile.skillLevel === 'elite' && Math.random() < 0.9)) {
-            // Strong teams usually level 2
-            endgameRobotStatus.climbL2 = true;
+    let teleopAttemptChance: number = teleopClimbAttemptChanceBySkill[profile.skillLevel] ?? 0.75;
+    if (isPlayoff) teleopAttemptChance = Math.min(0.99, teleopAttemptChance + 0.03);
+
+    if (Math.random() < teleopAttemptChance) {
+        const buildStyle = chooseTeleopClimbBuildStyle(profile.skillLevel);
+        const climbStartTimeSecRemaining = sampleTeleopClimbStartSecForStyle(profile.skillLevel, buildStyle);
+        const climbLocation = chooseClimbLocation(profile.skillLevel, 'teleop');
+        const desiredLevel: 1 | 3 = buildStyle === 'l3-focused' ? 3 : 1;
+        const maxLevelByTime = maxTeleopClimbLevelForTime(climbStartTimeSecRemaining);
+        let achievedLevel: 1 | 2 | 3 = desiredLevel;
+        let overreachingLevel = false;
+
+        if (buildStyle === 'l1-only') {
+            achievedLevel = 1;
         } else {
-            // Average/developing teams go for level 1
-            endgameRobotStatus.climbL1 = true;
+            if (maxLevelByTime >= 3) {
+                achievedLevel = 3;
+            } else if (maxLevelByTime === 2) {
+                // Rarely settle for L2; most L3-focused teams still attempt L3 and risk failure
+                if (Math.random() < 0.14) {
+                    achievedLevel = 2;
+                } else {
+                    achievedLevel = 3;
+                    overreachingLevel = true;
+                }
+            } else {
+                achievedLevel = 3;
+                overreachingLevel = true;
+            }
         }
-    } else {
-        // Failed climb
-        endgameRobotStatus.climbFailed = true;
+
+        let successChance = profile.endgameSuccess;
+        successChance += buildStyle === 'l1-only' ? 0.08 : -0.03;
+        successChance -= (achievedLevel - 1) * 0.07;
+        if (overreachingLevel) successChance -= 0.18;
+        if (climbStartTimeSecRemaining <= 5) successChance -= 0.28;
+        else if (climbStartTimeSecRemaining <= 8) successChance -= 0.16;
+        else if (climbStartTimeSecRemaining <= 12) successChance -= 0.08;
+        successChance = clamp(successChance * (0.9 + profile.consistency * 0.2), 0.05, 0.98);
+
+        const canAttemptAtAll = maxLevelByTime > 0;
+        const climbSuccess = canAttemptAtAll && Math.random() < successChance;
+
+        teleopActions.push({
+            type: 'climb',
+            action: climbSuccess ? `climbL${achievedLevel}` : 'climb-fail',
+            timestamp: Date.now() + randomInt(85000, 130000),
+            position: jitter(POSITIONS.tower, 0.02),
+            climbLevel: achievedLevel,
+            climbResult: climbSuccess ? 'success' : 'fail',
+            climbLocation,
+            climbStartTimeSecRemaining,
+            amountLabel: `${climbLocation === 'side' ? 'Side' : 'Middle'} L${achievedLevel} ${climbSuccess ? '✓' : '✗'}`,
+        });
+
+        if (climbSuccess) {
+            endgameRobotStatus[`climbL${achievedLevel}`] = true;
+        } else {
+            endgameRobotStatus.climbFailed = true;
+        }
     }
 
     // Active phase roles (multi-select) - favor passer role if isPasser
@@ -596,5 +921,26 @@ export const generate2026GameData: GameDataGenerator = (profile, matchKey) => {
         startPosition,
     };
 
-    return gameDataTransformation.transformActionsToCounters(rawMatchData);
+    const transformed = gameDataTransformation.transformActionsToCounters(rawMatchData);
+
+    // Simulate occasional incomplete passing tracking in scouting entries.
+    // This keeps demo data realistic for analytics that must handle missing assist inputs.
+    const passTrackingMissingChanceBySkill = {
+        elite: 0.06,
+        strong: 0.1,
+        average: 0.15,
+        developing: 0.2,
+    } as const;
+
+    const passTrackingMissingChance = passTrackingMissingChanceBySkill[profile.skillLevel] ?? 0.12;
+    if (Math.random() < passTrackingMissingChance) {
+        if (transformed.auto && typeof transformed.auto === 'object') {
+            delete transformed.auto.fuelPassedCount;
+        }
+        if (transformed.teleop && typeof transformed.teleop === 'object') {
+            delete transformed.teleop.fuelPassedCount;
+        }
+    }
+
+    return transformed;
 };

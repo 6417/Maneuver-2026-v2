@@ -19,7 +19,25 @@ export function StatOverview({
     rateSections: _rateSections,
     setActiveTab
 }: StatOverviewProps) {
-    if (teamStats.matchesPlayed === 0) {
+    const hasCoprData = [
+        teamStats.coprHubAutoPoints,
+        teamStats.coprHubTeleopPoints,
+        teamStats.coprAutoTowerPoints,
+        teamStats.coprEndgameTowerPoints,
+    ].some(value => typeof value === 'number');
+
+    const hasStatboticsData = [
+        teamStats.statboticsTotalPoints,
+        teamStats.statboticsAutoPoints,
+        teamStats.statboticsTeleopPoints,
+        teamStats.statboticsEndgamePoints,
+        teamStats.statboticsTotalFuel,
+        teamStats.statboticsTotalTower,
+    ].some(value => typeof value === 'number');
+
+    const hasExternalApiData = hasCoprData || hasStatboticsData;
+
+    if (teamStats.matchesPlayed === 0 && !hasExternalApiData) {
         return (
             <Card>
                 <CardContent className="flex flex-col items-center justify-center py-8">
@@ -47,6 +65,13 @@ export function StatOverview({
 
     return (
         <div className="space-y-6 pb-6">
+            {teamStats.matchesPlayed === 0 && hasExternalApiData && (
+                <Card>
+                    <CardContent className="py-4 text-sm text-muted-foreground">
+                        No local match scouting entries for this team yet. Showing external metrics from TBA COPR and/or Statbotics EPA.
+                    </CardContent>
+                </Card>
+            )}
             {sections.map(section => (
                 <Card key={section.id}>
                     <CardHeader>

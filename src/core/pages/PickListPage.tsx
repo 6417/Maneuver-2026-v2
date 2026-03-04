@@ -20,8 +20,11 @@ const PickListPage = () => {
         newListDescription,
         searchFilter,
         sortBy,
+        activeFilterIds,
+        defenseTargetTeamFilter,
         activeTab,
         showAllianceSelection,
+        hideAllianceAssignedTeams,
         filteredAndSortedTeams,
 
         // State setters
@@ -29,9 +32,12 @@ const PickListPage = () => {
         setNewListDescription,
         setSearchFilter,
         setSortBy,
+        setActiveFilterIds,
+        setDefenseTargetTeamFilter,
         setActiveTab,
         setAlliances,
         setBackups,
+        setHideAllianceAssignedTeams,
 
         // Actions
         addTeamToList,
@@ -74,9 +80,14 @@ const PickListPage = () => {
                     newListDescription={newListDescription}
                     searchFilter={searchFilter}
                     sortBy={sortBy}
+                    activeFilterIds={activeFilterIds}
+                    defenseTargetTeamFilter={defenseTargetTeamFilter}
+                    hideAllianceAssignedTeams={hideAllianceAssignedTeams}
                     onTabChange={setActiveTab}
                     onSearchChange={setSearchFilter}
                     onSortChange={setSortBy}
+                    onFilterChange={setActiveFilterIds}
+                    onDefenseTargetTeamFilterChange={setDefenseTargetTeamFilter}
                     onAddTeamToList={addTeamToList}
                     onAddTeamToAlliance={showAllianceSelection ? addTeamToAlliance : undefined}
                     onUpdateAlliances={setAlliances}
@@ -91,6 +102,7 @@ const PickListPage = () => {
                     onExport={exportPickLists}
                     onImport={importPickLists}
                     onToggleAllianceSelection={handleToggleAllianceSelection}
+                    onToggleHideAllianceAssignedTeams={setHideAllianceAssignedTeams}
                 />
 
                 {/* Desktop Layout (xl and above) - Side by Side */}
@@ -105,8 +117,14 @@ const PickListPage = () => {
                     newListDescription={newListDescription}
                     searchFilter={searchFilter}
                     sortBy={sortBy}
+                    activeFilterIds={activeFilterIds}
+                    defenseTargetTeamFilter={defenseTargetTeamFilter}
+                    hideAllianceAssignedTeams={hideAllianceAssignedTeams}
                     onSearchChange={setSearchFilter}
                     onSortChange={setSortBy}
+                    onFilterChange={setActiveFilterIds}
+                    onDefenseTargetTeamFilterChange={setDefenseTargetTeamFilter}
+                    onToggleHideAllianceAssignedTeams={setHideAllianceAssignedTeams}
                     onAddTeamToList={addTeamToList}
                     onAddTeamToAlliance={showAllianceSelection ? addTeamToAlliance : undefined}
                     onUpdateAlliances={setAlliances}

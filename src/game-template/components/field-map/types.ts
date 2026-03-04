@@ -25,7 +25,9 @@ export type ZoneType = 'allianceZone' | 'neutralZone' | 'opponentZone';
 
 export type ClimbLevel = 1 | 2 | 3;
 export type ClimbResult = 'success' | 'fail';
+export type ClimbLocation = 'side' | 'middle';
 export type ShotType = 'onTheMove' | 'stationary';
+export type DefenseEffectiveness = 'very' | 'somewhat' | 'not';
 
 // =============================================================================
 // WAYPOINT DATA
@@ -44,10 +46,14 @@ export interface PathWaypoint {
     zone?: ZoneType;
     climbLevel?: ClimbLevel;
     climbResult?: ClimbResult;
+    climbLocation?: ClimbLocation;
     shotType?: ShotType;
     climbStartTimeSecRemaining?: number | null;
     duration?: number; // For stuck events (ms)
     obstacleType?: 'bump' | 'trench'; // For stuck events
+    defendedTeamNumber?: number;
+    defenseTargetSource?: 'schedule' | 'custom';
+    defenseEffectiveness?: DefenseEffectiveness;
 }
 
 // =============================================================================
@@ -91,6 +97,8 @@ export interface FieldCanvasProps {
     drawConnectedPaths?: boolean;
     /** Optional zone bounds to show as visual boundary indicator when drawing */
     drawingZoneBounds?: { xMin: number; xMax: number; yMin: number; yMax: number };
+    /** Optional replay progress (0-1) for progressive path drawing. If omitted, paths render fully. */
+    replayDrawProgress?: number;
     onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
     onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
     onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -99,6 +107,7 @@ export interface FieldCanvasProps {
 export interface FieldButtonProps {
     elementKey: string;
     element: FieldElement;
+    hotkeyLabel?: string;
     isVisible: boolean;
     isDisabled?: boolean;
     isStuck?: boolean;

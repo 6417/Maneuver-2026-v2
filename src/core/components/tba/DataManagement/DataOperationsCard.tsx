@@ -11,6 +11,8 @@ import {
   Trophy,
   Users,
   AlertCircle,
+  CheckCircle,
+  BarChart3,
 } from 'lucide-react';
 import { type TBADataType } from '../EventConfiguration/DataTypeSelector';
 
@@ -21,11 +23,14 @@ interface DataOperationsCardProps {
   nexusApiKey: string;
   matchDataLoading: boolean;
   matchResultsLoading: boolean;
+  validationLoading: boolean;
   eventTeamsLoading: boolean;
   pitDataLoading: boolean;
   debugNexusLoading: boolean;
   onLoadMatchData: () => void;
   onLoadMatchResults: () => void;
+  onLoadValidationData: () => void;
+  onLoadStatboticsEPA: () => void;
   onLoadEventTeams: () => void;
   onLoadPitData: () => void;
   onDebugNexus: () => void;
@@ -38,11 +43,14 @@ export const DataOperationsCard: React.FC<DataOperationsCardProps> = ({
   nexusApiKey,
   matchDataLoading,
   matchResultsLoading,
+  validationLoading,
   eventTeamsLoading,
   pitDataLoading,
   debugNexusLoading,
   onLoadMatchData,
   onLoadMatchResults,
+  onLoadValidationData,
+  onLoadStatboticsEPA,
   onLoadEventTeams,
   onLoadPitData,
   onDebugNexus,
@@ -78,6 +86,15 @@ export const DataOperationsCard: React.FC<DataOperationsCardProps> = ({
           requiresTBA: true,
           requiresNexus: false,
         };
+      case 'match-validation-data':
+        return {
+          title: 'Load Match Validation Data',
+          description: 'Download TBA match breakdowns and refresh TBA COPR + Statbotics EPA metrics for validation',
+          icon: CheckCircle,
+          requiresEvent: true,
+          requiresTBA: true,
+          requiresNexus: false,
+        };
       case 'pit-data':
         return {
           title: 'Load Pit Data',
@@ -86,6 +103,15 @@ export const DataOperationsCard: React.FC<DataOperationsCardProps> = ({
           requiresEvent: true,
           requiresTBA: false,
           requiresNexus: true,
+        };
+      case 'statbotics-epa':
+        return {
+          title: 'Load Statbotics EPA',
+          description: 'Download Statbotics team-event EPA breakdown data for all teams in this event',
+          icon: BarChart3,
+          requiresEvent: true,
+          requiresTBA: true,
+          requiresNexus: false,
         };
       case 'debug-nexus':
         return {
@@ -155,6 +181,26 @@ export const DataOperationsCard: React.FC<DataOperationsCardProps> = ({
             )}
           </Button>
         );
+      case 'match-validation-data':
+        return (
+          <Button
+            className="w-full h-12"
+            onClick={onLoadValidationData}
+            disabled={validationLoading || !canLoad}
+          >
+            {validationLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading Validation Data...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Load Match Validation Data
+              </>
+            )}
+          </Button>
+        );
       case 'event-teams':
         return (
           <Button
@@ -171,6 +217,26 @@ export const DataOperationsCard: React.FC<DataOperationsCardProps> = ({
               <>
                 <Download className="h-4 w-4 mr-2" />
                 Load Event Teams
+              </>
+            )}
+          </Button>
+        );
+      case 'statbotics-epa':
+        return (
+          <Button
+            className="w-full h-12"
+            onClick={onLoadStatboticsEPA}
+            disabled={validationLoading || !canLoad}
+          >
+            {validationLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading Statbotics EPA...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Load Statbotics EPA
               </>
             )}
           </Button>
