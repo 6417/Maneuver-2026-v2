@@ -3,6 +3,7 @@ import type { Scout } from '@/core/types/gamification';
 
 export type AchievementCategory =
     | 'accuracy'
+    | 'scouting'
     | 'volume'
     | 'streaks'
     | 'special'

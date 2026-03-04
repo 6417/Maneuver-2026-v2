@@ -8,7 +8,7 @@ import type { ScoutingEntryBase } from '@/core/types/scouting-entry';
 
 /**
  * Agnostic Test Data Generator
- * 
+ *
  * This utility provides framework-level functions for generating random test data
  * predicated on the current game schema.
  */
@@ -35,7 +35,7 @@ const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max 
 
 /**
  * Generate random scouting data for a single match based on the schema
- * 
+ *
  * Uses gameDataTransformation to ensure the output format exactly matches
  * what the real application saves to the database.
  */
@@ -155,6 +155,7 @@ export const generateRandomScouts = async () => {
 
     for (const name of TEST_SCOUT_NAMES) {
         const totalPredictions = randomInt(5, 50);
+        const totalScoutings = totalPredictions + randomInt(5, 15);
         const correctPredictions = Math.floor(totalPredictions * (0.4 + Math.random() * 0.5));
         const stakesFromPredictions = correctPredictions * 10;
 
@@ -163,6 +164,7 @@ export const generateRandomScouts = async () => {
             stakes: stakesFromPredictions + randomInt(0, 100), // Random achievement bonus
             stakesFromPredictions,
             totalPredictions,
+            totalScoutings,
             correctPredictions,
             currentStreak: randomInt(0, 5),
             longestStreak: randomInt(5, 12),
@@ -201,7 +203,7 @@ export const generateRandomPredictions = async (scoutName: string, count: number
 
 /**
  * Generate scouting data aligned with TBA match data for validation testing
- * 
+ *
  * This fetches actual TBA matches for the current event and generates
  * scouting entries for all teams. The data will have realistic values
  * for testing the match validation feature.

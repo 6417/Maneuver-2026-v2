@@ -112,11 +112,13 @@ export const updateScoutWithPredictionResult = async (
         newCurrentStreak = 0;
     }
 
+    console.log("upgrade totalScoutings + 1.");
+
     await updateScoutStats(
         name,
         scout.stakes + pointsAwarded,
         scout.correctPredictions + (isCorrect ? 1 : 0),
-        scout.totalScoutings +1,
+        scout.totalScoutings,
         scout.totalPredictions + 1,
         newCurrentStreak,
         newLongestStreak,

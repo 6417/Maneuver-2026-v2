@@ -1,6 +1,6 @@
 /**
  * submitMatch - Shared match submission logic
- * 
+ *
  * This utility can be called from any page that needs to submit match data.
  * It handles data transformation, database saving, and cleanup.
  */
@@ -9,6 +9,7 @@ import { db } from '@/core/db/database';
 import { clearScoutingLocalStorage } from '@/core/lib/utils';
 import { toast } from 'sonner';
 import type { DataTransformation } from '@/types';
+import { updateScoutStatsWithAchievements, getScout } from '@/core/lib/scoutGamificationUtils';
 
 interface MatchInputs {
     eventKey: string;
@@ -71,13 +72,13 @@ function buildMatchKey(matchType: string, matchNumber: string): { matchKey: stri
 
 /**
  * Submit match data to database
- * 
+ *
  * This function:
  * 1. Retrieves all action/status data from localStorage
  * 2. Transforms actions to counter fields using game transformation
  * 3. Saves the entry to IndexedDB
  * 4. Clears localStorage and increments match number
- * 
+ *
  * @param options.noShow - If true, submits a minimal entry with noShow flag and skips data collection
  */
 export async function submitMatchData({
@@ -118,7 +119,7 @@ export async function submitMatchData({
             await db.scoutingData.put(entry as never);
             toast.success('No-show match submitted');
             clearScoutingLocalStorage();
-            
+
             if (onSuccess) {
                 onSuccess();
             }
@@ -158,6 +159,24 @@ export async function submitMatchData({
 
         // Save to database
         await db.scoutingData.put(scoutingEntry as never);
+
+        if (inputs.scoutName) {
+            const scout = await getScout(inputs.scoutName);
+            if (scout) {
+                console.log(`current totalScoutings (before): ${scout.totalScoutings}`);
+                await updateScoutStatsWithAchievements(
+                  scout.name,
+                  scout.stakes,
+                  scout.correctPredictions,
+                  scout.totalPredictions,
+                  (scout.totalScoutings || 0) + 1,
+                  scout.currentStreak,
+                  scout.longestStreak
+                );
+                console.log(`current totalScoutings (after): ${scout.totalScoutings}`);
+                console.log(`✅ Gamification: Zähler für ${scout.name} erhöht.`);
+            }
+        }
 
         // Clear action stacks and robot status
         clearScoutingLocalStorage();

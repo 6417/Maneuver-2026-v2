@@ -43,7 +43,8 @@ export class ScoutGamificationDB extends Dexie {
             return tx.table('scouts').toCollection().modify(scout => {
                 scout.totalScoutings = scout.totalScoutings || 0;
             });
-        });    }
+        });
+    }
 }
 
 // Singleton database instance
@@ -126,7 +127,10 @@ export const updateScoutStats = async (
     longestStreak?: number,
     additionalStakesFromPredictions: number = 0
 ): Promise<void> => {
+    console.log('database.ts: totalScoutings + 1');
     const scout = await gamificationDB.scouts.get(name);
+    console.log(scout);
+    console.log('totalScoutings: ' + totalScoutings);
     if (scout) {
         scout.stakes = newStakes;
         scout.stakesFromPredictions += additionalStakesFromPredictions;
@@ -142,6 +146,7 @@ export const updateScoutStats = async (
         }
 
         scout.lastUpdated = Date.now();
+        console.log(scout);
         await gamificationDB.scouts.put(scout);
     }
 };

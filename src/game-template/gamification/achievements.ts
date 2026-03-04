@@ -44,7 +44,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
         icon: '🎯',
         category: 'scouting',
         tier: 'bronze',
-        requirements: { type: 'minimum', value: 1, property: 'totalScouting' },
+        requirements: { type: 'minimum', value: 1, property: 'totalScoutings' },
         stakesReward: 5
     },
     {
@@ -54,8 +54,38 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
         icon: '📊',
         category: 'scouting',
         tier: 'bronze',
-        requirements: { type: 'minimum', value: 10, property: 'totalScouting' },
+        requirements: { type: 'minimum', value: 10, property: 'totalScoutings' },
         stakesReward: 10
+    },
+    {
+        id: 'scouting_25',
+        name: 'Active Scout',
+        description: 'Make 25 Scoutings',
+        icon: '📈',
+        category: 'scouting',
+        tier: 'silver',
+        requirements: { type: 'minimum', value: 25, property: 'totalScoutings' },
+        stakesReward: 25
+    },
+    {
+        id: 'scouting_50',
+        name: 'Dedicated Scout',
+        description: 'Make 50 Scoutings',
+        icon: '💪',
+        category: 'scouting',
+        tier: 'gold',
+        requirements: { type: 'minimum', value: 50, property: 'totalScoutings' },
+        stakesReward: 50
+    },
+    {
+        id: 'scouting_100',
+        name: 'Legendary Scout',
+        description: 'Make 100 Scoutings',
+        icon: '💪',
+        category: 'scouting',
+        tier: 'platinum',
+        requirements: { type: 'minimum', value: 100, property: 'totalScoutings' },
+        stakesReward: 100
     },
     {
         id: 'first_prediction',
@@ -79,7 +109,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     },
     {
         id: 'predictions_50',
-        name: 'Active Scout',
+        name: 'Active Predictor',
         description: 'Make 50 predictions',
         icon: '📈',
         category: 'volume',
@@ -89,7 +119,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     },
     {
         id: 'predictions_100',
-        name: 'Dedicated Scout',
+        name: 'Dedicated Predictor',
         description: 'Make 100 predictions',
         icon: '💪',
         category: 'volume',
@@ -99,7 +129,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     },
     {
         id: 'predictions_200',
-        name: 'Scout Veteran',
+        name: 'Scout prediction Veteran',
         description: 'Make 200 predictions',
         icon: '🏆',
         category: 'volume',
@@ -109,7 +139,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     },
     {
         id: 'predictions_300',
-        name: 'Scout Legend',
+        name: 'Scout prediction Legend',
         description: 'Make 300 predictions',
         icon: '👑',
         category: 'volume',

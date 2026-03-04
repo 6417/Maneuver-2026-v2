@@ -1,13 +1,13 @@
 /**
  * Demo Data Generator
- * 
+ *
  * Creates realistic demo data for testing the entire scouting workflow:
  * - 30 teams with varying skill levels
  * - 60 qualification matches (each team plays ~12 matches)
  * - Full playoff bracket (quarterfinals, semifinals, finals)
  * - Scouting entries for all matches
  * - Realistic scoring patterns
- * 
+ *
  * This is game-agnostic and uses the game context to generate game-specific data.
  */
 
@@ -64,7 +64,7 @@ interface TeamSkillProfile {
  */
 function generateTeamProfiles(): TeamSkillProfile[] {
     const teams: TeamSkillProfile[] = [];
-    
+
     // Elite teams (top 10%)
     const eliteCount = Math.ceil(TEAMS_COUNT * 0.1);
     for (let i = 0; i < eliteCount; i++) {
@@ -78,7 +78,7 @@ function generateTeamProfiles(): TeamSkillProfile[] {
             consistency: 0.85 + Math.random() * 0.15,
         });
     }
-    
+
     // Strong teams (next 25%)
     const strongCount = Math.ceil(TEAMS_COUNT * 0.25);
     for (let i = 0; i < strongCount; i++) {
@@ -92,7 +92,7 @@ function generateTeamProfiles(): TeamSkillProfile[] {
             consistency: 0.70 + Math.random() * 0.20,
         });
     }
-    
+
     // Average teams (next 40%)
     const averageCount = Math.ceil(TEAMS_COUNT * 0.40);
     for (let i = 0; i < averageCount; i++) {
@@ -106,7 +106,7 @@ function generateTeamProfiles(): TeamSkillProfile[] {
             consistency: 0.50 + Math.random() * 0.30,
         });
     }
-    
+
     // Developing teams (remaining ~25%)
     const remaining = TEAMS_COUNT - teams.length;
     for (let i = 0; i < remaining; i++) {
@@ -120,7 +120,7 @@ function generateTeamProfiles(): TeamSkillProfile[] {
             consistency: 0.30 + Math.random() * 0.40,
         });
     }
-    
+
     return teams;
 }
 
@@ -143,22 +143,22 @@ interface MatchSchedule {
 function generateQualSchedule(teams: TeamSkillProfile[], eventKey: string): MatchSchedule[] {
     const matches: MatchSchedule[] = [];
     const teamNumbers = teams.map(t => t.teamNumber);
-    
+
     for (let matchNum = 1; matchNum <= QUAL_MATCHES; matchNum++) {
         // Calculate starting index for this match (cycles through teams)
         const startIndex = ((matchNum - 1) * 6) % teamNumbers.length;
-        
+
         // Get 6 consecutive teams (wrapping around if needed)
         const selectedTeams: number[] = [];
         for (let i = 0; i < 6; i++) {
             const teamIndex = (startIndex + i) % teamNumbers.length;
             selectedTeams.push(teamNumbers[teamIndex]!);
         }
-        
+
         // Split into alliances (first 3 red, next 3 blue)
         const redTeams = selectedTeams.slice(0, 3);
         const blueTeams = selectedTeams.slice(3, 6);
-        
+
         matches.push({
             matchKey: `${eventKey}_qm${matchNum}`,
             matchNumber: matchNum,
@@ -167,7 +167,7 @@ function generateQualSchedule(teams: TeamSkillProfile[], eventKey: string): Matc
             blueTeams,
         });
     }
-    
+
     return matches;
 }
 
@@ -193,13 +193,13 @@ function determineMatchWinner(
                 // Add some randomness based on consistency
                 const variance = (1 - profile.consistency) * 0.3;
                 const randomFactor = 1 + (Math.random() - 0.5) * variance;
-                
+
                 const strength = (
                     profile.autoAccuracy +
                     profile.teleopAccuracy +
                     profile.endgameSuccess
                 ) / 3 * randomFactor;
-                
+
                 totalStrength += strength;
             }
         }
@@ -909,9 +909,9 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         includePlayoffs: _includePlayoffs = true,
         seedFakeValidationResults: shouldSeedFakeValidationResults = false,
     } = options;
-    
+
     console.log('🎲 Generating demo event data...');
-    
+
     try {
         // Clear existing demo data if requested
         if (clearExisting) {
@@ -922,22 +922,22 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
             await clearEventValidationResults(eventKey);
             console.log('  ✓ Cleared existing demo data');
         }
-        
+
         // Generate team profiles
         const teams = generateTeamProfiles();
         console.log(`  ✓ Generated ${teams.length} team profiles`);
-        
+
         // Generate match schedules (only qualification matches)
         const qualSchedule = generateQualSchedule(teams, eventKey);
         const allMatches = qualSchedule;
         console.log(`  ✓ Generated ${qualSchedule.length} qual matches`);
-        
+
         // Generate scouting entries for all matches
         let entriesGenerated = 0;
         const processedEntries = new Set<string>(); // Track entry IDs to prevent duplicates
         const matchStatsMap = new Map<string, DemoMatchStats>();
         const matchScoutAssignments: DemoScoutAssignments = new Map();
-        
+
         for (const match of allMatches) {
             const normalizedMatchKey = match.matchKey.includes('_')
                 ? (match.matchKey.split('_')[1] || match.matchKey)
@@ -947,7 +947,7 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
             for (let i = 0; i < match.redTeams.length; i++) {
                 const teamNumber = match.redTeams[i];
                 if (!teamNumber) continue;
-                
+
                 // Check for duplicate team in this match
                 const entryId = `${eventKey}::${normalizedMatchKey}::${teamNumber}::red`;
                 if (processedEntries.has(entryId)) {
@@ -955,12 +955,12 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     continue;
                 }
                 processedEntries.add(entryId);
-                
+
                 const profile = teams.find(t => t.teamNumber === teamNumber);
                 if (!profile) continue;
-                
+
                 const scoutName = TEST_SCOUT_NAMES[Math.floor(Math.random() * TEST_SCOUT_NAMES.length)] || "Demo Scout";
-                
+
                 const entry: ScoutingEntryBase<Record<string, unknown>> = {
                     id: `${eventKey}::${normalizedMatchKey}::${teamNumber}::red`,
                     teamNumber,
@@ -973,18 +973,18 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     comments: Math.random() > 0.7 ? generateRandomComment(profile) : undefined,
                     gameData: gameDataGenerator(profile, normalizedMatchKey),
                 };
-                
+
                 await saveScoutingEntry(entry);
                 recordDemoEntryStats(matchStatsMap, match.matchKey, 'red', entry.gameData);
                 recordDemoScoutAssignment(matchScoutAssignments, match.matchKey, 'red', teamNumber, scoutName);
                 entriesGenerated++;
             }
-            
+
             // Blue alliance entries
             for (let i = 0; i < match.blueTeams.length; i++) {
                 const teamNumber = match.blueTeams[i];
                 if (!teamNumber) continue;
-                
+
                 // Check for duplicate team in this match
                 const entryId = `${eventKey}::${normalizedMatchKey}::${teamNumber}::blue`;
                 if (processedEntries.has(entryId)) {
@@ -992,12 +992,12 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     continue;
                 }
                 processedEntries.add(entryId);
-                
+
                 const profile = teams.find(t => t.teamNumber === teamNumber);
                 if (!profile) continue;
-                
+
                 const scoutName = TEST_SCOUT_NAMES[Math.floor(Math.random() * TEST_SCOUT_NAMES.length)] || "Demo Scout";
-                
+
                 const entry: ScoutingEntryBase<Record<string, unknown>> = {
                     id: `${eventKey}::${normalizedMatchKey}::${teamNumber}::blue`,
                     teamNumber,
@@ -1010,14 +1010,14 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     comments: Math.random() > 0.7 ? generateRandomComment(profile) : undefined,
                     gameData: gameDataGenerator(profile, normalizedMatchKey),
                 };
-                
+
                 await saveScoutingEntry(entry);
                 recordDemoEntryStats(matchStatsMap, match.matchKey, 'blue', entry.gameData);
                 recordDemoScoutAssignment(matchScoutAssignments, match.matchKey, 'blue', teamNumber, scoutName);
                 entriesGenerated++;
             }
         }
-        
+
         console.log(`  ✓ Generated ${entriesGenerated} scouting entries`);
         // Create team profiles map for reuse
         const teamProfilesMap = new Map(teams.map(t => [t.teamNumber, t]));
@@ -1026,34 +1026,34 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         let pitEntriesGenerated = 0;
         const drivetrains: DrivetrainType[] = ['swerve', 'tank', 'mecanum', 'other'];
         const programmingLanguages: ProgrammingLanguage[] = ['Java', 'C++', 'Python', 'LabVIEW'];
-        
+
         for (const team of teams) {
             const profile = teamProfilesMap.get(team.teamNumber);
             if (!profile) continue;
 
             // Assign scout (rotate through scouts for pit scouting too)
             const pitScout = TEST_SCOUT_NAMES[team.teamNumber % TEST_SCOUT_NAMES.length]!;
-            
+
             // Generate realistic robot specs based on team skill
             // 90% of all non-developing teams use Swerve (very common in modern FRC)
             const drivetrain = profile.tier === 'developing'
                 ? drivetrains[Math.floor(Math.random() * drivetrains.length)]! // Developing teams use varied drivetrains
                 : 'swerve'; // Almost all competitive teams use Swerve now
-            
+
             const weight = 90 + Math.random() * 25; // 90-115 lbs
-            
+
             // 90% of teams use Java
-            const programmingLanguage = Math.random() < 0.9 
-                ? 'Java' 
+            const programmingLanguage = Math.random() < 0.9
+                ? 'Java'
                 : programmingLanguages[Math.floor(Math.random() * programmingLanguages.length)]!;
-            
+
             // Generate robot capabilities based on skill tier
             // Physical dimensions
-            const robotHeight = profile.tier === 'developing' 
+            const robotHeight = profile.tier === 'developing'
                 ? 24 + Math.random() * 6  // 24-30" (can't go under trench)
                 : 18 + Math.random() * 4; // 18-22" (most can go under)
             const canGoUnderTrench = robotHeight < 22.25;
-            
+
             // Fuel capacity - taller robots hold more (more vertical space)
             // Tall robots (24-30"): 80-120 pieces
             // Medium robots (22-24"): 50-80 pieces
@@ -1061,21 +1061,21 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
             const fuelCapacity = robotHeight >= 24 ? 80 + Math.floor(Math.random() * 41) : // 80-120
                                 robotHeight >= 22 ? 50 + Math.floor(Math.random() * 31) : // 50-80
                                 20 + Math.floor(Math.random() * 31); // 20-50
-            
+
             // Strategic preferences
             const startPositions = START_POSITIONS;
             const preferredStartPositions = startPositions.slice(0, 1 + Math.floor(Math.random() * 3)); // 1-3 positions
-            
+
             const activeRoles = profile.tier === 'elite' ? ['Cycler', 'Thief'] :
                                profile.tier === 'strong' ? ['Cycler', 'Clean Up'] :
                                profile.tier === 'average' ? ['Clean Up', 'Passer'] :
                                ['Defense', 'Passer'];
-            
+
             const inactiveRoles = profile.tier === 'elite' ? ['Passer', 'Defense'] :
                                  profile.tier === 'strong' ? ['Passer', 'Thief'] :
                                  profile.tier === 'average' ? ['Passer', 'Defense'] :
                                  ['Clean Up'];
-            
+
             // Climbing capabilities
             const canAutoClimbL1 = profile.tier === 'elite' && Math.random() > 0.5;
             const targetClimbLevel = profile.tier === 'elite' ? 'level3' :
@@ -1100,17 +1100,17 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     maxWidth: Math.round(26 + Math.random() * 4), // 26-30"
                     maxHeight: Math.round(robotHeight),
                     canGoUnderTrench,
-                    
+
                     // Fuel Handling
                     fuelCapacity,
                     canOutpostPickup: Math.random() > 0.2, // 80% can pickup from outpost
                     canPassToCorral: Math.random() > 0.3, // 70% can pass to corral
-                    
+
                     // Strategic Preferences
                     preferredStartPositions,
                     preferredActiveRoles: activeRoles,
                     preferredInactiveRoles: inactiveRoles,
-                    
+
                     // Autonomous & Endgame
                     canAutoClimbL1,
                     targetClimbLevel,
@@ -1122,7 +1122,7 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         }
 
         console.log(`  ✓ Generated ${pitEntriesGenerated} pit scouting entries`);
-        
+
         // Generate match predictions for all test scouts
         // Scout prediction accuracies (varying skill levels)
         const scoutAccuracies: Record<string, number> = {
@@ -1200,6 +1200,7 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                     newTotalStakes, // total stakes
                     correct, // correct predictions
                     total, // total predictions
+                    total, // (total Scoutings)
                     undefined, // currentStreak (calculate separately if needed)
                     undefined, // longestStreak (calculate separately if needed)
                     totalStakesFromPredictions // additional stakes from these predictions
@@ -1208,22 +1209,22 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         }
 
         console.log(`  ✓ Updated scout prediction stats for ${TEST_SCOUT_NAMES.length} scouts`);
-        
+
         // Create all test scouts in database and scouts list
         const scoutsList = localStorage.getItem('scoutsList');
         const existingScouts = scoutsList ? JSON.parse(scoutsList) : [];
-        
+
         for (const scoutName of TEST_SCOUT_NAMES) {
             await getOrCreateScoutByName(scoutName);
             if (!existingScouts.includes(scoutName)) {
                 existingScouts.push(scoutName);
             }
         }
-        
+
         // Update scouts list
         localStorage.setItem('scoutsList', JSON.stringify(existingScouts.sort()));
         console.log(`  ✓ Created ${TEST_SCOUT_NAMES.length} test scouts in database`);
-        
+
         // Set first scout as current scout
         // Note: This updates localStorage directly. The ScoutContext will pick it up
         // via its event listener when the scoutChanged event is dispatched.
@@ -1231,24 +1232,24 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         try {
             // Set current scout
             localStorage.setItem('currentScout', demoScoutName);
-            
+
             // Set default player station to Red 1
             localStorage.setItem('playerStation', 'red-1');
-            
+
             // Dispatch events to notify ScoutContext and nav-main
             window.dispatchEvent(new Event('scoutChanged'));
             window.dispatchEvent(new Event('playerStationChanged'));
-            
+
             console.log(`  ✓ Set ${demoScoutName} as current scout (Red 1)`);
         } catch (error) {
             console.error('Failed to create demo scout:', error);
         }
-        
+
         // Set the demo event as current event in localStorage
         localStorage.setItem('eventKey', eventKey);
         setCurrentEvent(eventKey); // Also adds to event history
         console.log(`  ✓ Set ${eventKey} as current event`);
-        
+
         // Add demo event to custom events list if not already there
         try {
             const customEventsList = localStorage.getItem('customEventsList');
@@ -1261,13 +1262,13 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
         } catch (error) {
             console.error('Failed to update custom events list:', error);
         }
-        
+
         await cacheAndStoreDemoSchedule(eventKey, allMatches, matchStatsMap);
 
         if (shouldSeedFakeValidationResults) {
             await seedFakeValidationResults(eventKey, allMatches, matchScoutAssignments);
         }
-        
+
         return {
             success: true,
             message: `Demo event created: ${teams.length} teams, ${qualSchedule.length} matches, ${entriesGenerated} entries, ${pitEntriesGenerated} pit entries, ${predictionsGenerated} predictions by ${TEST_SCOUT_NAMES.length} scouts`,
@@ -1278,7 +1279,7 @@ export async function generateDemoEvent(options: DemoDataOptions = {}): Promise<
                 entriesGenerated,
             },
         };
-        
+
     } catch (error) {
         console.error('❌ Error generating demo data:', error);
         return {
@@ -1332,7 +1333,7 @@ function generateRandomComment(profile: TeamSkillProfile): string {
             "Good effort",
         ],
     };
-    
+
     const skillComments = comments[profile.skillLevel];
     return skillComments[Math.floor(Math.random() * skillComments.length)] || "Good effort";
 }
@@ -1341,11 +1342,11 @@ function generateRandomComment(profile: TeamSkillProfile): string {
  * Generate realistic pit scouting notes based on team capabilities
  */
 function generatePitNotes(
-    profile: TeamSkillProfile, 
+    profile: TeamSkillProfile,
     capabilities: { canAutoClimbL1: boolean; targetClimbLevel: string; fuelCapacity: number; canGoUnderTrench: boolean }
 ): string {
     const notes: string[] = [];
-    
+
     // Add notes based on skill tier
     if (profile.tier === 'elite') {
         notes.push('Very experienced team with well-built robot.');
@@ -1356,7 +1357,7 @@ function generatePitNotes(
     } else {
         notes.push('Rookie or developing team, learning as they go.');
     }
-    
+
     // Add capability notes
     if (capabilities.canGoUnderTrench) {
         notes.push('Can navigate under trench for faster field traversal.');
@@ -1374,6 +1375,6 @@ function generatePitNotes(
     } else if (capabilities.targetClimbLevel === 'level2') {
         notes.push('Targets Level 2 climb (20pts).');
     }
-    
+
     return notes.join(' ');
 }
