@@ -1,6 +1,6 @@
 /**
  * 2026 REBUILT Pit Scouting Questions
- * 
+ *
  * Game-specific questions focused on robot capabilities that cannot be determined
  * from watching matches:
  * - Physical specifications (height, trench capability)
@@ -221,37 +221,37 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
       {/* Physical Specifications */}
       <Card>
         <CardHeader>
-          <CardTitle>Physical Specifications</CardTitle>
+          <CardTitle>Physische Spezifikation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="maxLength">Robot Max Length (inches, with any extension)</Label>
+            <Label htmlFor="maxLength">Maximallänge (cm) - inkl. alle Extensions</Label>
             <Input
               id="maxLength"
               type="number"
-              placeholder="e.g., 30"
+              placeholder="e.g., 60"
               value={(gameData.maxLength as number) || ''}
               onChange={(e) => handleChange('maxLength', parseFloat(e.target.value) || 0)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="maxWidth">Robot Max Width (inches, with any extension)</Label>
+            <Label htmlFor="maxWidth">Maximalbreite (cm) - inkl. alle Extensions</Label>
             <Input
               id="maxWidth"
               type="number"
-              placeholder="e.g., 28"
+              placeholder="e.g., 55"
               value={(gameData.maxWidth as number) || ''}
               onChange={(e) => handleChange('maxWidth', parseFloat(e.target.value) || 0)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="maxHeight">Robot Max Height (inches)</Label>
+            <Label htmlFor="maxHeight">Maximalhöhe (cm)</Label>
             <Input
               id="maxHeight"
               type="number"
-              placeholder="e.g., 22"
+              placeholder="e.g., 40"
               value={(gameData.maxHeight as number) || ''}
               onChange={(e) => handleChange('maxHeight', parseFloat(e.target.value) || 0)}
             />
@@ -264,7 +264,7 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
               onClick={() => handleChange('canGoUnderTrench', !gameData.canGoUnderTrench)}
               className="flex-1"
             >
-              Can go under trench (22.25" clearance)
+              Fährt unter Trench durch
             </Button>
           </div>
         </CardContent>
@@ -330,8 +330,8 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
                   key={position}
                   type="button"
                   variant={isSelected ? "default" : "outline"}
-                  onClick={() => 
-                    handleMultiSelectChange('preferredStartPositions', position, 
+                  onClick={() =>
+                    handleMultiSelectChange('preferredStartPositions', position,
                       !isSelected)
                   }
                   className="h-auto py-3"
@@ -356,8 +356,8 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
                   key={`active-${role}`}
                   type="button"
                   variant={isSelected ? "default" : "outline"}
-                  onClick={() => 
-                    handleMultiSelectChange('preferredActiveRoles', role, 
+                  onClick={() =>
+                    handleMultiSelectChange('preferredActiveRoles', role,
                       !isSelected)
                   }
                   className="h-auto py-3"
@@ -382,8 +382,8 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
                   key={`inactive-${role}`}
                   type="button"
                   variant={isSelected ? "default" : "outline"}
-                  onClick={() => 
-                    handleMultiSelectChange('preferredInactiveRoles', role, 
+                  onClick={() =>
+                    handleMultiSelectChange('preferredInactiveRoles', role,
                       !isSelected)
                   }
                   className="h-auto py-3"
@@ -626,7 +626,7 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
       <CardContent className="space-y-4">
         <div className="space-y-3">
           <h4 className="font-medium text-sm">Scoring Capabilities</h4>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="canScoreCoral"
@@ -635,7 +635,7 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
             />
             <Label htmlFor="canScoreCoral">Can score coral pieces</Label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="canScoreAlgae"
@@ -648,7 +648,7 @@ export function GameSpecificQuestions({ gameData = {}, onGameDataChange }: GameS
 
         <div className="space-y-3">
           <h4 className="font-medium text-sm">Endgame</h4>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="canClimb"

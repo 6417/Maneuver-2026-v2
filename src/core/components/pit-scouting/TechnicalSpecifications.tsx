@@ -45,7 +45,7 @@ export function TechnicalSpecifications({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings className="h-5 w-5" />
-          Technical Specifications
+          Technische Spezifikation
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -53,12 +53,12 @@ export function TechnicalSpecifications({
         <div className="space-y-2">
           <Label htmlFor="weight" className="flex items-center gap-2">
             <Weight className="h-4 w-4" />
-            Robot Weight (lbs)
+            Gewicht (Kilogramm)
           </Label>
           <Input
             id="weight"
             type="number"
-            placeholder="e.g., 125"
+            placeholder="e.g., 48"
             value={weight ?? ""}
             onChange={handleWeightChange}
             min="0"
@@ -66,7 +66,7 @@ export function TechnicalSpecifications({
             className="text-lg"
           />
           <p className="text-sm text-muted-foreground">
-            Optional: Robot weight in pounds (with bumpers and battery)
+            Optional: Robotergewicht, inkl. Batterie & Bumper
           </p>
         </div>
 
@@ -74,7 +74,7 @@ export function TechnicalSpecifications({
         <div className="space-y-2">
           <Label htmlFor="drivetrain" className="flex items-center gap-2">
             <Car className="h-4 w-4" />
-            Drivetrain Type
+            Fahrwerk
           </Label>
           <Select
             value={drivetrain ?? "unspecified"}
@@ -94,7 +94,7 @@ export function TechnicalSpecifications({
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            Optional: Type of drivetrain used by the robot
+            Optional: Welches Fahrwerk nutzt der Roboter?
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export function TechnicalSpecifications({
         <div className="space-y-2">
           <Label htmlFor="programmingLanguage" className="flex items-center gap-2">
             <Code className="h-4 w-4" />
-            Programming Language
+            Programmiersprache
           </Label>
           <Select
             value={programmingLanguage ?? "unspecified"}
@@ -123,7 +123,7 @@ export function TechnicalSpecifications({
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            Optional: Primary programming language used for robot code
+            Optional: Primäre Programmiersprache vom Roboter
           </p>
         </div>
       </CardContent>

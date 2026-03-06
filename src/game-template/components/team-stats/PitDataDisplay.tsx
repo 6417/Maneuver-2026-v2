@@ -143,34 +143,34 @@ export function PitDataDisplay({ teamNumber, selectedEvent }: PitDataDisplayProp
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Drivetrain</span>
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Fahrwerk</span>
                                     <div className="font-medium text-lg capitalize">{entry.drivetrain || "Unknown"}</div>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Weight</span>
-                                    <div className="font-medium text-lg">{entry.weight ? `${entry.weight} lbs` : "Unknown"}</div>
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gewicht</span>
+                                    <div className="font-medium text-lg">{entry.weight ? `${entry.weight} kg` : "Unknown"}</div>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Programming</span>
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Programmiersprache</span>
                                     <div className="font-medium text-lg">{entry.programmingLanguage || "Unknown"}</div>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dimensions</span>
+                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dimensionen</span>
                                     <div className="font-medium text-lg">
                                         {(() => {
                                             const maxLength = entry.gameData?.maxLength;
                                             const maxWidth = entry.gameData?.maxWidth;
                                             const maxHeight = entry.gameData?.maxHeight;
-                                            
+
                                             if (!maxLength && !maxWidth && !maxHeight) {
                                                 return <span className="text-muted-foreground">-</span>;
                                             }
-                                            
+
                                             return (
                                                 <div className="text-sm leading-tight">
-                                                    {typeof maxLength === 'number' && <div>L: {maxLength}"</div>}
-                                                    {typeof maxWidth === 'number' && <div>W: {maxWidth}"</div>}
-                                                    {typeof maxHeight === 'number' && <div>H: {maxHeight}"</div>}
+                                                    {typeof maxLength === 'number' && <div>L: {maxLength} cm</div>}
+                                                    {typeof maxWidth === 'number' && <div>W: {maxWidth} cm</div>}
+                                                    {typeof maxHeight === 'number' && <div>H: {maxHeight} cm</div>}
                                                 </div>
                                             );
                                         })()}
